@@ -6,6 +6,7 @@ on:
   push:
     paths:
       - 'tools/translate_ko.py'
+      - 'tools/translate_overlays_ko.py'
       - '.github/workflows/build-korean.yml'
   workflow_dispatch:
 
@@ -21,8 +22,11 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: 한글 패치 적용
+      - name: 한글 패치 적용 (메뉴/설정)
         run: python -X utf8 tools/translate_ko.py "Race_Element"
+
+      - name: 한글 패치 적용 (오버레이 라벨)
+        run: python -X utf8 tools/translate_overlays_ko.py
 
       - name: 빌드 (한글판 RaceElement.exe 생성)
         run: dotnet publish "Race_Element/Race Element.csproj" -p:PublishProfile=PublishProfile
