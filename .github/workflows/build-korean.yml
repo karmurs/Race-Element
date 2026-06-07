@@ -1,0 +1,35 @@
+name: Build Korean (한글판 빌드)
+
+# 이 파일을 추가/커밋하면 자동으로 빌드가 시작됩니다.
+# 또는 Actions 탭에서 "Run workflow" 버튼으로 수동 실행할 수도 있습니다.
+on:
+  push:
+    paths:
+      - 'tools/translate_ko.py'
+      - '.github/workflows/build-korean.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: .NET 10 SDK 설치
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 한글 패치 적용
+        run: python tools/translate_ko.py "Race_Element"
+
+      - name: 빌드 (한글판 RaceElement.exe 생성)
+        run: dotnet publish "Race_Element/Race Element.csproj" -p:PublishProfile=PublishProfile
+
+      - name: 결과물 업로드 (RaceElement-Korean.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: RaceElement-Korean
+          path: Race_Element/bin/Release/RaceElement.exe
+          if-no-files-found: error
