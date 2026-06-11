@@ -279,6 +279,11 @@
     background: #fff; border-radius: 3px; padding: 1px 4px;
     margin-right: 7px; vertical-align: middle; display: inline-block;
   }
+  body.logo-noplate .mk-logo {
+    background: transparent; border-radius: 0; padding: 0;
+    filter: drop-shadow(0 0 1px rgba(255,255,255,.95)) drop-shadow(0 0 2px rgba(255,255,255,.7))
+            drop-shadow(0 0 7px rgba(255,255,255,.35));
+  }
   .mk {
     display: inline-block; min-width: 36px; margin-right: 7px; padding: 1px 6px;
     font-family: var(--disp); font-style: italic; font-weight: 700; font-size: 10px;
@@ -371,6 +376,8 @@
       </div>
       <div class="opt-row">
         <label><input type="checkbox" id="optTeamName"> 팀명을 드라이버 이름으로 표시</label>
+        <label><input type="checkbox" id="optLogoPlate"> 로고 흰색 배지</label>
+        <span class="dim">끄면 투명 로고가 배경 위에 표시 (검은 로고는 흰 글로우 처리)</span>
         <span class="dim">오프라인 챔피언십은 게임이 팀명 칸의 이름을 리더보드에 표시합니다 (AI 챔피언십이면 끄세요)</span>
       </div>
     </div>
@@ -804,7 +811,7 @@ const state = {
     poleOn: false, poleBonus: 1,
     flOn: false, flBonus: 1,
     dropOn: false, dropCount: 1,
-    teamAsName: true,
+    teamAsName: true, logoPlate: true,
     classFilter: -1, teamsOn: false,
   },
 };
@@ -1238,6 +1245,12 @@ function renderPointsEditor() {
   document.getElementById("optDrop").checked = s.dropOn;
   document.getElementById("dropCount").value = s.dropCount;
   document.getElementById("optTeamName").checked = s.teamAsName;
+  document.getElementById("optLogoPlate").checked = s.logoPlate;
+  applyLogoPlate();
+}
+
+function applyLogoPlate() {
+  document.body.classList.toggle("logo-noplate", !state.settings.logoPlate);
 }
 
 function renderSeasonSelect() {
@@ -1558,6 +1571,10 @@ function bind() {
   opt("optFL", "flOn"); opt("flBonus", "flBonus", true);
   opt("optDrop", "dropOn"); opt("dropCount", "dropCount", true);
   opt("optTeamName", "teamAsName");
+  document.getElementById("optLogoPlate").addEventListener("change", e => {
+    state.settings.logoPlate = e.target.checked;
+    save(); applyLogoPlate();
+  });
 
   document.getElementById("btnWatch").addEventListener("click", onWatchClick);
   document.getElementById("btnWatchStop").addEventListener("click", stopWatch);
