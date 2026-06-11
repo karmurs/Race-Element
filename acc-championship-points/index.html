@@ -312,7 +312,30 @@ function detectSessionType(json) {
 
 function getTrackName(json) {
   const def = json.sessionDef || {};
-  return def.trackName || def.track || json.trackName || json.track || "(알 수 없는 트랙)";
+  const direct = def.trackName || def.track || def.Track || json.trackName || json.track;
+  if (direct && typeof direct === "string") return direct;
+  // 고정 키에 없으면 파일 전체에서 알려진 트랙 id와 일치하는 문자열을 탐색
+  return findTrackString(def) || findTrackString(json) || "";
+}
+
+// 객체/배열을 재귀 탐색해 알려진 트랙 id(monza, spa, cota_2020 …)와
+// 일치하는 문자열을 찾는다. 드라이버/팀 이름과의 우연한 충돌을 피하기 위해
+// 정확히 트랙 id 형태인 문자열만 인정한다.
+function findTrackString(obj, depth = 0) {
+  if (obj === null || obj === undefined || depth > 6) return null;
+  if (typeof obj === "string") {
+    const key = obj.trim().toLowerCase().replace(/_\d{4}$/, "");
+    return Object.prototype.hasOwnProperty.call(TRACK_NAMES, key) ? obj.trim() : null;
+  }
+  if (Array.isArray(obj)) {
+    for (const v of obj) { const r = findTrackString(v, depth + 1); if (r) return r; }
+    return null;
+  }
+  if (typeof obj === "object") {
+    for (const v of Object.values(obj)) { const r = findTrackString(v, depth + 1); if (r) return r; }
+    return null;
+  }
+  return null;
 }
 
 const TRACK_NAMES = {

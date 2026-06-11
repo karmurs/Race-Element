@@ -141,6 +141,27 @@ test("랩타임 포맷", () => {
   assert.equal(core.formatLapTime(2147483647), "—");
 });
 
+test("트랙 탐색: 고정 키에 없어도 파일 안의 트랙 id를 찾아낸다", () => {
+  const j = JSON.stringify({
+    sessionDef: { sessionType: 10, options: { weekend: { trackId: "brands_hatch_2020" } } },
+    snapShot: { leaderBoardLines: [
+      { car: { raceNumber: 1, teamName: "Monza Fans", cupCategory: 0,
+               drivers: [{ firstName: "", lastName: "테스트" }] },
+        timing: { bestLap: 1, totalTime: 1, lapCount: 1 } },
+    ]},
+  });
+  const s = core.parseSession(j, "Race.json", 0);
+  assert.equal(core.prettyTrack(s.trackRaw), "Brands Hatch");
+  // 트랙 정보가 전혀 없으면 빈 값 → "(알 수 없는 트랙)" 표시
+  const none = core.parseSession(JSON.stringify({
+    sessionDef: { sessionType: 10 },
+    snapShot: { leaderBoardLines: [
+      { car: { raceNumber: 1, drivers: [{ lastName: "x" }] }, timing: { lapCount: 1 } },
+    ]},
+  }), "Race.json", 0);
+  assert.equal(core.prettyTrack(none.trackRaw), "(알 수 없는 트랙)");
+});
+
 // ---------- 7. 차량 모델 / 갭 / 랩별 기록 ----------
 test("차량 모델 매핑: carModel → 차량 이름", () => {
   assert.equal(race.lines[0].carModel, 35);
