@@ -254,6 +254,28 @@
   .lap-item.lap-invalid b { color: var(--muted); text-decoration: line-through; }
   .lap-item .x { color: #ff5a52; }
 
+  /* ---------- 메이커 칩 / 아바타 / 순위 변동 ---------- */
+  .mk {
+    display: inline-block; min-width: 36px; margin-right: 7px; padding: 1px 6px;
+    font-family: var(--disp); font-style: italic; font-weight: 700; font-size: 10px;
+    clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+    text-align: center; letter-spacing: .5px;
+  }
+  .avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%; overflow: hidden;
+    background: #232a39; border: 1px solid #323b4e; color: var(--muted);
+    font-size: 11px; font-weight: 700; margin-right: 8px; vertical-align: middle;
+    cursor: pointer; transition: border-color .15s, box-shadow .15s;
+  }
+  .avatar:hover { border-color: var(--accent-hi); box-shadow: 0 0 6px rgba(255,59,48,.4); }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .delta { font-family: var(--disp); font-weight: 700; font-size: 11px; }
+  .delta.up { color: var(--green); }
+  .delta.down { color: #ff5a52; }
+  .delta.same { color: #465063; }
+  .delta.new { color: var(--accent2); font-size: 9px; letter-spacing: 1px; }
+
   h3.sub-title { font-size: 14px; margin: 24px 0 8px; color: var(--muted); font-family: var(--disp); letter-spacing: 2px; }
   footer { text-align: center; color: #3f4960; font-size: 12px; padding: 32px 0; font-family: var(--disp); letter-spacing: 1px; }
 </style>
@@ -584,15 +606,51 @@ function formatGap(leader, ln) {
   return `+${formatLapTime(d)}`;
 }
 
-// 같은 트랙에서 레이스보다 먼저 끝난 가장 가까운 퀄리파잉의 1위 → 폴
-function findPoleRaceNumber(race, qualiSessions) {
+// 같은 트랙에서 레이스보다 먼저 끝난 가장 가까운 퀄리파잉 세션
+function findQualiFor(race, qualiSessions) {
   let best = null;
   for (const q of qualiSessions) {
     if (q.trackRaw !== race.trackRaw) continue;
     if (race.time && q.time && q.time > race.time) continue;
     if (!best || (q.time || 0) > (best.time || 0)) best = q;
   }
-  return best && best.lines[0] ? best.lines[0].raceNumber : null;
+  return best;
+}
+
+function findPoleRaceNumber(race, qualiSessions) {
+  const q = findQualiFor(race, qualiSessions);
+  return q && q.lines[0] ? q.lines[0].raceNumber : null;
+}
+
+// 차량 메이커 배지 (타이밍 모니터식 3글자 코드 + 브랜드 컬러)
+const MAKER_DEFS = [
+  ["POR", "#d5001c", "#fff", [0, 9, 23, 28, 34, 61, 85, 86]],
+  ["MER", "#00a19b", "#fff", [1, 25, 60, 84]],
+  ["FER", "#ef1a2d", "#fff", [2, 24, 26, 32]],
+  ["AUD", "#bb0a30", "#fff", [3, 19, 31, 52, 80]],
+  ["LAM", "#ddb321", "#15130a", [4, 16, 18, 29, 33]],
+  ["MCL", "#ff8000", "#1b1206", [5, 22, 35, 59]],
+  ["NIS", "#c3002f", "#fff", [6, 10]],
+  ["BMW", "#0066b1", "#fff", [7, 27, 30, 53]],
+  ["BEN", "#00563f", "#fff", [8, 11]],
+  ["AMR", "#00665e", "#fff", [12, 20, 51]],
+  ["REX", "#6d7278", "#fff", [13]],
+  ["JAG", "#9e1b32", "#fff", [14]],
+  ["LEX", "#2d4f6b", "#fff", [15]],
+  ["HON", "#e40521", "#fff", [17, 21]],
+  ["FOR", "#1351d8", "#fff", [36]],
+  ["ALP", "#0078c1", "#fff", [50]],
+  ["CHE", "#f7b500", "#1b1206", [55]],
+  ["GIN", "#00843d", "#fff", [56]],
+  ["KTM", "#ff6600", "#1b1206", [57, 82]],
+  ["MAS", "#003da5", "#fff", [58, 83]],
+];
+const CAR_MAKER = {};
+for (const [code, bg, fg, ids] of MAKER_DEFS)
+  for (const id of ids) CAR_MAKER[id] = { code, bg, fg };
+
+function makerOf(carModel) {
+  return CAR_MAKER[carModel] ?? null;
 }
 
 const INVALID_LAP = 2147483647; // ACC가 미기록 랩에 쓰는 값
@@ -618,29 +676,40 @@ function computeChampionship(races, settings) {
   const roundResults = [];   // 라운드별 {raceNumber → {pos, points, pole, fl}}
 
   races.forEach((race, ri) => {
-    const flNum = flBonus > 0 ? findFastestLapRaceNumber(race) : null;
-    const poleNum = poleBonus > 0 ? (race.poleRaceNumber ?? null) : null;
+    // 통계(폴/FL/퀄리)는 보너스 설정과 무관하게 항상 집계, 점수는 보너스가 켜진 경우만
+    const flNum = findFastestLapRaceNumber(race);
+    const poleNum = race.poleRaceNumber ?? null;
     const perDriver = new Map();
 
     race.lines.forEach((ln, idx) => {
       const base = pts[idx] || 0;
-      let bonus = 0, pole = false, fl = false;
-      if (poleNum !== null && ln.raceNumber === poleNum) { bonus += poleBonus; pole = true; }
-      if (flNum !== null && ln.raceNumber === flNum) { bonus += flBonus; fl = true; }
+      const pole = poleNum !== null && ln.raceNumber === poleNum;
+      const fl = flNum !== null && ln.raceNumber === flNum;
+      const bonus = (pole ? poleBonus : 0) + (fl ? flBonus : 0);
       perDriver.set(ln.raceNumber, { pos: idx + 1, points: base + bonus, base, bonus, pole, fl });
 
       let e = drivers.get(ln.raceNumber);
       if (!e) {
         e = { raceNumber: ln.raceNumber, name: ln.name, team: ln.team, cupCategory: ln.cupCategory,
-              wins: 0, podiums: 0, poles: 0, fls: 0, posCount: {}, perRound: new Array(races.length).fill(null) };
+              carModel: ln.carModel ?? null,
+              wins: 0, podiums: 0, poles: 0, fls: 0,
+              qualiSum: 0, qualiCount: 0, qualiBest: Infinity, qualiBestCount: 0,
+              posCount: {}, perRound: new Array(races.length).fill(null) };
         drivers.set(ln.raceNumber, e);
       }
-      // 최근 레이스 기준으로 이름/팀 갱신
+      // 최근 레이스 기준으로 이름/팀/차량 갱신
       e.name = ln.name; if (ln.team) e.team = ln.team; e.cupCategory = ln.cupCategory;
+      if (ln.carModel !== undefined && ln.carModel !== null) e.carModel = ln.carModel;
       if (idx === 0) e.wins++;
       if (idx < 3) e.podiums++;
       if (pole) e.poles++;
       if (fl) e.fls++;
+      const qp = race.qualiPos ? race.qualiPos[ln.raceNumber] : undefined;
+      if (qp) {
+        e.qualiSum += qp; e.qualiCount++;
+        if (qp < e.qualiBest) { e.qualiBest = qp; e.qualiBestCount = 1; }
+        else if (qp === e.qualiBest) e.qualiBestCount++;
+      }
       e.posCount[idx + 1] = (e.posCount[idx + 1] || 0) + 1;
       e.perRound[ri] = perDriver.get(ln.raceNumber);
     });
@@ -703,6 +772,7 @@ const state = {
   included: {},          // id → bool
   names: {},             // id → 수동 트랙/라운드 이름
   watchSeen: {},         // 감시 모드: 파일명 → 마지막으로 읽은 수정시각
+  driverImages: {},      // raceNumber → 드라이버 사진 (dataURL)
   seasons: [{ id: "s1", name: "챔피언십 1" }],
   currentSeason: "s1",
   settings: {
@@ -729,6 +799,7 @@ function load() {
     if (s.included) state.included = s.included;
     if (s.names) state.names = s.names;
     if (s.watchSeen) state.watchSeen = s.watchSeen;
+    if (s.driverImages) state.driverImages = s.driverImages;
     if (Array.isArray(s.seasons) && s.seasons.length) state.seasons = s.seasons;
     if (s.currentSeason) state.currentSeason = s.currentSeason;
     if (s.settings) Object.assign(state.settings, s.settings);
@@ -977,7 +1048,7 @@ async function pollLive() {
       return `<tr class="pos-${pos}">
         <td>${pos}</td>
         <td class="l"><span class="race-num">#${c.raceNumber}</span>${esc(liveDriverName(c))}</td>
-        <td class="l team-cell">${esc(carName(c.carModel))}</td>
+        <td class="l team-cell">${makerChipHtml(c.carModel)}${esc(carName(c.carModel))}</td>
         <td>${c.laps ?? ""}</td>
         <td>${formatLapTime(c.lastLap)}</td>
         <td>${formatLapTime(c.bestLap)}</td>
@@ -1061,7 +1132,54 @@ function preparedRaces() {
     ...r,
     lines: r.lines.map(displayLine),
     poleRaceNumber: findPoleRaceNumber(r, qualis),
+    qualiPos: (() => {
+      const q = findQualiFor(r, qualis);
+      return q ? Object.fromEntries(q.lines.map((ln, i) => [ln.raceNumber, i + 1])) : null;
+    })(),
   }));
+}
+
+function makerChipHtml(carModel) {
+  const m = makerOf(carModel);
+  return m ? `<span class="mk" style="background:${m.bg};color:${m.fg}">${m.code}</span>` : "";
+}
+
+function qualiStatText(e) {
+  const bestQ = e.qualiBest === Infinity ? "—"
+    : `${e.qualiBest}위${e.qualiBestCount > 1 ? ` ×${e.qualiBestCount}` : ""}`;
+  const avgQ = e.qualiCount ? (e.qualiSum / e.qualiCount).toFixed(1) : "—";
+  return { bestQ, avgQ };
+}
+
+// 드라이버 사진: 클릭해서 등록/변경, Shift+클릭으로 삭제 (64px로 줄여 저장)
+function onAvatarClick(ev, num) {
+  if (ev.shiftKey) {
+    if (state.driverImages[num]) { delete state.driverImages[num]; save(); renderStandings(); }
+    return;
+  }
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = "image/*";
+  input.onchange = () => {
+    const f = input.files[0];
+    if (!f) return;
+    const img = new Image();
+    img.onload = () => {
+      const size = 64, cv = document.createElement("canvas");
+      cv.width = size; cv.height = size;
+      const cx = cv.getContext("2d");
+      const sc = Math.max(size / img.width, size / img.height);
+      cx.drawImage(img, (size - img.width * sc) / 2, (size - img.height * sc) / 2,
+        img.width * sc, img.height * sc);
+      URL.revokeObjectURL(img.src);
+      try {
+        state.driverImages[num] = cv.toDataURL("image/jpeg", 0.82);
+        save();
+      } catch { alert("사진을 저장하지 못했습니다 (저장 공간 부족)"); }
+      renderStandings();
+    };
+    img.src = URL.createObjectURL(f);
+  };
+  input.click();
 }
 
 function renderPointsEditor() {
@@ -1142,7 +1260,7 @@ function renderRounds() {
       return `<tr class="pos-${li + 1}">
         <td>${li + 1}</td>
         <td class="l"><span class="race-num">#${ln.raceNumber}</span>${esc(ln.name)}${marks}</td>
-        <td class="l team-cell">${esc(carName(ln.carModel))}</td>
+        <td class="l team-cell">${makerChipHtml(ln.carModel)}${esc(carName(ln.carModel))}</td>
         <td class="l team-cell">${esc(ln.team || "—")}</td>
         <td>${ln.lapCount}</td>
         <td>${formatLapTime(ln.bestLap)}</td>
@@ -1259,7 +1377,15 @@ function renderStandings() {
   const rows = standings.filter(e => cf < 0 || e.cupCategory === cf);
 
   const roundHead = races.map((r, i) => `<th title="${esc(displayTrack(r))}">R${i + 1}</th>`).join("");
-  const bonusCols = (settings.poleBonus ? "<th>폴</th>" : "") + (settings.flBonus ? "<th>FL</th>" : "");
+  const flCol = settings.flBonus ? "<th>FL</th>" : "";
+
+  // 직전 라운드까지의 순위와 비교해 변동(▲▼) 계산
+  let prevRank = null;
+  if (races.length > 1) {
+    const prev = computeChampionship(races.slice(0, -1), settings).standings
+      .filter(e => cf < 0 || e.cupCategory === cf);
+    prevRank = new Map(prev.map((e, i) => [e.raceNumber, i + 1]));
+  }
 
   const maxTotal = Math.max(1, ...rows.map(e => e.total));
   const trs = rows.map((e, i) => {
@@ -1269,20 +1395,39 @@ function renderStandings() {
       const marks = `${r.pole ? '<span class="bonus-mark p">P</span>' : ""}${r.fl ? '<span class="bonus-mark f">FL</span>' : ""}`;
       return `<td class="${cls}" title="${ri + 1}라운드 ${r.pos}위">${r.points}${marks}</td>`;
     }).join("");
-    const bonusCells = (settings.poleBonus ? `<td>${e.poles || ""}</td>` : "")
-      + (settings.flBonus ? `<td>${e.fls || ""}</td>` : "");
+    let delta = "";
+    if (prevRank) {
+      if (!prevRank.has(e.raceNumber)) delta = `<span class="delta new">NEW</span>`;
+      else {
+        const d = prevRank.get(e.raceNumber) - (i + 1);
+        delta = d > 0 ? `<span class="delta up">▲${d}</span>`
+          : d < 0 ? `<span class="delta down">▼${-d}</span>`
+          : `<span class="delta same">—</span>`;
+      }
+    }
+    const img = state.driverImages[e.raceNumber];
+    const avatar = `<span class="avatar" data-avatar="${e.raceNumber}"
+      title="클릭: 드라이버 사진 등록/변경 · Shift+클릭: 삭제">${
+      img ? `<img src="${img}" alt="">` : esc(String(e.name).charAt(0))}</span>`;
+    const { bestQ, avgQ } = qualiStatText(e);
+    const flCell = settings.flBonus ? `<td>${e.fls || ""}</td>` : "";
     return `<tr class="pos-${i + 1}" style="--bar:${(e.total / maxTotal * 100).toFixed(1)}%">
       <td>${i + 1}</td>
-      <td class="l"><span class="race-num">#${e.raceNumber}</span>${esc(e.name)}</td>
+      <td>${delta}</td>
+      <td class="l">${avatar}<span class="race-num">#${e.raceNumber}</span>${makerChipHtml(e.carModel)}${esc(e.name)}</td>
       <td class="l team-cell">${esc(e.team || "—")}</td>
       <td class="total">${e.total}</td>
       ${cells}
-      <td>${e.wins || ""}</td>${bonusCells}
+      <td>${e.wins || ""}</td>
+      <td>${e.podiums || ""}</td>
+      <td>${e.poles || ""}</td>
+      <td>${bestQ}</td>
+      <td>${avgQ}</td>${flCell}
     </tr>`;
   }).join("");
 
   let html = `<div class="tbl-wrap"><table>
-    <thead><tr><th>순위</th><th class="l">드라이버</th><th class="l">팀</th><th>총점</th>${roundHead}<th>우승</th>${bonusCols}</tr></thead>
+    <thead><tr><th>순위</th><th>±</th><th class="l">드라이버</th><th class="l">팀</th><th>총점</th>${roundHead}<th>우승</th><th>TOP3</th><th>폴</th><th>베스트 Q</th><th>평균 Q</th>${flCol}</tr></thead>
     <tbody>${trs}</tbody>
   </table></div>`;
 
@@ -1303,6 +1448,9 @@ function renderStandings() {
   }
 
   body.innerHTML = html;
+  body.querySelectorAll("[data-avatar]").forEach(el => {
+    el.addEventListener("click", ev => onAvatarClick(ev, el.dataset.avatar));
+  });
 }
 
 function renderResults() { renderRounds(); renderStandings(); }
@@ -1314,11 +1462,16 @@ function exportCsv() {
   const { standings } = computeChampionship(races, currentSettings());
   const cf = state.settings.classFilter;
   const rows = standings.filter(e => cf < 0 || e.cupCategory === cf);
-  const head = ["순위", "번호", "드라이버", "팀", "총점", ...races.map((_, i) => `R${i + 1}`), "우승"];
-  const csv = [head, ...rows.map((e, i) => [
-    i + 1, e.raceNumber, e.name, e.team || "",
-    e.total, ...e.perRound.map(r => (r ? r.points : "")), e.wins,
-  ])].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const head = ["순위", "번호", "드라이버", "팀", "총점", ...races.map((_, i) => `R${i + 1}`),
+    "우승", "TOP3", "폴", "베스트 퀄리", "평균 퀄리"];
+  const csv = [head, ...rows.map((e, i) => {
+    const { bestQ, avgQ } = qualiStatText(e);
+    return [
+      i + 1, e.raceNumber, e.name, e.team || "",
+      e.total, ...e.perRound.map(r => (r ? r.points : "")),
+      e.wins, e.podiums, e.poles, bestQ, avgQ,
+    ];
+  })].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);

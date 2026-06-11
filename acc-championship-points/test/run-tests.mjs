@@ -13,7 +13,8 @@ assert.ok(m, "index.html에서 __CORE__ 구간을 찾지 못했습니다");
 const core = new Function(`${m[1]}; return {
   DEFAULT_POINTS, PRESETS, decodeResultBuffer, detectSessionType, getTrackName,
   prettyTrack, parseSession, findPoleRaceNumber, findFastestLapRaceNumber,
-  computeChampionship, formatLapTime, formatTotalTime, formatGap, carName };`)();
+  computeChampionship, formatLapTime, formatTotalTime, formatGap, carName,
+  findQualiFor, makerOf };`)();
 
 let passed = 0;
 function test(name, fn) {
@@ -200,6 +201,29 @@ test("랩별 기록: lapTime/flags 포맷을 carId로 드라이버에 연결", (
   const kim = race.lines.find(l => l.raceNumber === 7);
   assert.equal(kim.laps.length, 1);
   assert.equal(kim.laps[0].v, false);           // flags 1025 = 무효
+});
+
+// ---------- 8. 통계 / 메이커 ----------
+test("통계: 보너스가 꺼져 있어도 폴·TOP3·퀄리 기록 집계 (점수엔 미반영)", () => {
+  const r = { ...race, poleRaceNumber: 30, qualiPos: { 30: 1, 20: 2, 4: 3 } };
+  const { standings } = core.computeChampionship([r, r], { points: core.DEFAULT_POINTS });
+  const jang = standings.find(e => e.name === "장혁");
+  const lee = standings.find(e => e.name === "이태희");
+  assert.equal(jang.total, 20);          // 폴 보너스 점수 없음 (10+10)
+  assert.equal(jang.poles, 2);
+  assert.equal(jang.qualiBest, 1);
+  assert.equal(jang.qualiBestCount, 2);  // 1위 ×2
+  assert.equal(lee.podiums, 2);
+  assert.equal(lee.qualiBest, 2);
+  assert.equal((lee.qualiSum / lee.qualiCount).toFixed(1), "2.0");
+  assert.equal(lee.carModel, 16);
+});
+
+test("차량 메이커 매핑", () => {
+  assert.equal(core.makerOf(32).code, "FER");
+  assert.equal(core.makerOf(16).code, "LAM");
+  assert.equal(core.makerOf(34).code, "POR");
+  assert.equal(core.makerOf(999), null);
 });
 
 console.log(`\n${passed}개 테스트 모두 통과 ✅`);
