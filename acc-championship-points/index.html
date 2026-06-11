@@ -224,17 +224,54 @@
   .empty-note { color: var(--muted); text-align: center; padding: 28px 0; font-size: 13px; line-height: 1.8; }
   .team-cell { color: var(--muted); font-size: 12px; }
 
-  /* ---------- 순위표 강조 ---------- */
-  #standingsBody tbody tr {
-    background: linear-gradient(90deg, rgba(225,6,0,.10) var(--bar, 0%), transparent var(--bar, 0%));
+  /* ---------- 순위표: F1식 브랜드 컬러 행 ---------- */
+  #standingsBody tbody tr.brand-row {
+    background: var(--row-bg, var(--panel2));
+    color: var(--row-fg, var(--text));
   }
-  #standingsBody tbody tr:hover { background:
-    linear-gradient(90deg, rgba(225,6,0,.16) var(--bar, 0%), rgba(255,255,255,.03) var(--bar, 0%)); }
-  #standingsBody tr.pos-1 { box-shadow: inset 3px 0 0 var(--gold); }
-  #standingsBody tr.pos-2 { box-shadow: inset 3px 0 0 var(--silver); }
-  #standingsBody tr.pos-3 { box-shadow: inset 3px 0 0 var(--bronze); }
-  #standingsBody tr.pos-1 td:nth-child(2) { font-weight: 700; font-size: 14px; }
-  #standingsBody td:first-child { font-size: 15px; }
+  #standingsBody tbody tr.brand-row td {
+    border-bottom: 4px solid var(--bg);
+    padding-top: 9px; padding-bottom: 9px;
+  }
+  #standingsBody tbody tr.brand-row:hover { filter: brightness(1.1); }
+  #standingsBody tbody tr.brand-row:hover td { background: transparent; }
+  #standingsBody tr.pos-1 { box-shadow: inset 4px 0 0 var(--gold); }
+  #standingsBody tr.pos-2 { box-shadow: inset 4px 0 0 var(--silver); }
+  #standingsBody tr.pos-3 { box-shadow: inset 4px 0 0 var(--bronze); }
+  #standingsBody td.pos-cell {
+    font-family: var(--disp); font-style: italic; font-weight: 700; font-size: 18px;
+    color: inherit; min-width: 48px;
+  }
+  #standingsBody .pos-1 td.pos-cell, #standingsBody .pos-2 td.pos-cell,
+  #standingsBody .pos-3 td.pos-cell { color: inherit; }
+  #standingsBody td.total { color: inherit; }
+  #standingsBody td.zero { color: inherit; opacity: .4; }
+  #standingsBody td.dropped { color: inherit; opacity: .5; }
+  .drv-cell { min-width: 220px; }
+  .drv-names {
+    display: inline-flex; flex-direction: column; vertical-align: middle;
+    line-height: 1.2; text-align: left;
+  }
+  .drv-names b { font-size: 14px; letter-spacing: .3px; }
+  .drv-names small { font-size: 10px; opacity: .8; font-weight: 500; }
+  .drv-names .race-num {
+    background: rgba(0,0,0,.28); border: 0; color: inherit;
+    min-width: 0; margin-right: 6px; padding: 0 5px; font-size: 9px;
+  }
+  #standingsBody .avatar {
+    width: 30px; height: 30px; border: 2px solid rgba(255,255,255,.75);
+    background: rgba(0,0,0,.3); color: inherit;
+  }
+  #standingsBody .delta {
+    display: inline-block; min-width: 30px; padding: 1px 5px; border-radius: 3px;
+    background: rgba(0,0,0,.3); font-size: 10px; text-align: center;
+  }
+  #standingsBody .delta.up { color: #8dffbe; }
+  #standingsBody .delta.down { color: #ffb1aa; }
+  #standingsBody .delta.same { color: rgba(255,255,255,.55); }
+  #standingsBody .delta.new { color: var(--accent2); }
+  #standingsBody .bonus-mark.p { color: inherit; opacity: .9; }
+  #standingsBody .bonus-mark.f { color: inherit; opacity: .9; }
 
   /* ---------- 랩별 기록 ---------- */
   .lap-btn { margin-left: 6px; }
@@ -1420,11 +1457,13 @@ function renderStandings() {
       img ? `<img src="${img}" alt="">` : esc(String(e.name).charAt(0))}</span>`;
     const { bestQ, avgQ } = qualiStatText(e);
     const flCell = settings.flBonus ? `<td>${e.fls || ""}</td>` : "";
-    return `<tr class="pos-${i + 1}" style="--bar:${(e.total / maxTotal * 100).toFixed(1)}%">
-      <td>${i + 1}</td>
+    const mk = makerOf(e.carModel);
+    const rowStyle = mk ? `--row-bg:${mk.bg};--row-fg:${mk.fg}` : "";
+    return `<tr class="pos-${i + 1} brand-row" style="${rowStyle}">
+      <td class="pos-cell">${i + 1}</td>
       <td>${delta}</td>
-      <td class="l">${avatar}<span class="race-num">#${e.raceNumber}</span>${makerChipHtml(e.carModel)}${esc(e.name)}</td>
-      <td class="l team-cell">${esc(e.team || "—")}</td>
+      <td class="l drv-cell">${avatar}${makerChipHtml(e.carModel)}
+        <span class="drv-names"><b>${esc(e.name)}</b><small><span class="race-num">#${e.raceNumber}</span>${esc(e.team || "")}</small></span></td>
       <td class="total">${e.total}</td>
       ${cells}
       <td>${e.wins || ""}</td>
@@ -1436,7 +1475,7 @@ function renderStandings() {
   }).join("");
 
   let html = `<div class="tbl-wrap"><table>
-    <thead><tr><th>순위</th><th>±</th><th class="l">드라이버</th><th class="l">팀</th><th>총점</th>${roundHead}<th>우승</th><th>TOP3</th><th>폴</th><th>베스트 Q</th><th>평균 Q</th>${flCol}</tr></thead>
+    <thead><tr><th>순위</th><th>±</th><th class="l">드라이버</th><th>총점</th>${roundHead}<th>우승</th><th>TOP3</th><th>폴</th><th>베스트 Q</th><th>평균 Q</th>${flCol}</tr></thead>
     <tbody>${trs}</tbody>
   </table></div>`;
 
