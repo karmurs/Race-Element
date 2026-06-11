@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ACC 커스텀 챔피언십 포인트</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel2: #1c2330;
+    --border: #2d3748;
+    --text: #e6edf3;
+    --muted: #8b97a8;
+    --accent: #ff4d2e;
+    --accent2: #ffb01f;
+    --gold: #ffd700;
+    --silver: #c0c4cc;
+    --bronze: #cd7f32;
+    --green: #3fb950;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Malgun Gothic", "맑은 고딕", system-ui, sans-serif;
+    background-image:
+      repeating-linear-gradient(135deg, transparent 0 40px, rgba(255,255,255,0.012) 40px 80px);
+  }
+  header {
+    padding: 22px 28px 16px;
+    border-bottom: 2px solid var(--accent);
+    background: linear-gradient(180deg, #131922, #0d1117);
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  header h1 { margin: 0; font-size: 24px; letter-spacing: 1px; }
+  header h1 .flag { color: var(--accent); }
+  header .sub { color: var(--muted); font-size: 13px; }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px 24px 80px; }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-top: 20px;
+    overflow: hidden;
+  }
+  section > h2 {
+    margin: 0; padding: 12px 18px;
+    font-size: 15px; letter-spacing: 1px;
+    background: var(--panel2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  section > h2 .spacer { flex: 1; }
+  .body { padding: 16px 18px; }
+
+  /* ---------- 드롭존 ---------- */
+  #dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 30px 16px;
+    text-align: center;
+    color: var(--muted);
+    transition: border-color .15s, background .15s;
+    cursor: pointer;
+  }
+  #dropzone.drag { border-color: var(--accent); background: rgba(255,77,46,.06); color: var(--text); }
+  #dropzone strong { color: var(--text); }
+  #dropzone .hint { font-size: 12px; margin-top: 8px; }
+  .file-actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+  #loadStatus { font-size: 13px; color: var(--muted); }
+
+  button, select, input[type=number], input[type=text] {
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  button { cursor: pointer; transition: background .15s, border-color .15s; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover { filter: brightness(1.1); }
+  button.danger:hover { border-color: #f85149; color: #f85149; }
+  button.mini { padding: 2px 8px; font-size: 12px; }
+  input[type=number] { width: 64px; text-align: center; }
+  input:focus, select:focus, button:focus { outline: 1px solid var(--accent); }
+
+  /* ---------- 포인트 설정 ---------- */
+  .points-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pt-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .pt-cell label { font-size: 11px; color: var(--muted); }
+  .pt-cell:nth-child(1) label { color: var(--gold); font-weight: 700; }
+  .pt-cell:nth-child(2) label { color: var(--silver); font-weight: 700; }
+  .pt-cell:nth-child(3) label { color: var(--bronze); font-weight: 700; }
+  .opt-row { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 16px; align-items: center; font-size: 13px; }
+  .opt-row label { display: flex; align-items: center; gap: 6px; }
+  .opt-row .dim { color: var(--muted); }
+  input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+
+  /* ---------- 라운드 카드 ---------- */
+  .round-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background: var(--panel2);
+  }
+  .round-card.excluded { opacity: .45; }
+  .round-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; flex-wrap: wrap; }
+  .round-no {
+    background: var(--accent); color: #fff; font-weight: 700;
+    border-radius: 6px; padding: 3px 10px; font-size: 13px; min-width: 44px; text-align: center;
+  }
+  .round-card.excluded .round-no { background: var(--border); }
+  .round-title { font-weight: 600; }
+  .round-meta { color: var(--muted); font-size: 12px; }
+  .round-head .grow { flex: 1; }
+  .round-badges { display: flex; gap: 6px; font-size: 11px; }
+  .badge { border: 1px solid var(--border); border-radius: 99px; padding: 2px 8px; color: var(--muted); }
+  .badge.pole { border-color: var(--accent2); color: var(--accent2); }
+  .badge.fl { border-color: #b388ff; color: #b388ff; }
+  details.round-detail { border-top: 1px solid var(--border); }
+  details.round-detail summary { padding: 8px 14px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+  details.round-detail[open] summary { color: var(--text); }
+  .round-detail .tbl-wrap { padding: 0 14px 14px; }
+
+  /* ---------- 테이블 ---------- */
+  .tbl-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; white-space: nowrap; }
+  th, td { padding: 7px 10px; border-bottom: 1px solid var(--border); text-align: center; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; letter-spacing: .5px; background: rgba(255,255,255,.02); }
+  td.l, th.l { text-align: left; }
+  tr:hover td { background: rgba(255,255,255,.025); }
+  .pos-1 td:first-child { color: var(--gold); font-weight: 700; }
+  .pos-2 td:first-child { color: var(--silver); font-weight: 700; }
+  .pos-3 td:first-child { color: var(--bronze); font-weight: 700; }
+  td.total { font-weight: 700; color: var(--accent2); font-size: 14px; }
+  td.dropped { color: var(--muted); text-decoration: line-through; }
+  td.zero { color: #4a5566; }
+  .race-num { color: var(--muted); font-size: 12px; margin-right: 6px; }
+  .bonus-mark { font-size: 10px; vertical-align: super; }
+  .bonus-mark.p { color: var(--accent2); }
+  .bonus-mark.f { color: #b388ff; }
+  .empty-note { color: var(--muted); text-align: center; padding: 26px 0; font-size: 13px; }
+  .team-cell { color: var(--muted); font-size: 12px; }
+
+  h3.sub-title { font-size: 14px; margin: 22px 0 8px; color: var(--muted); letter-spacing: 1px; }
+  footer { text-align: center; color: #4a5566; font-size: 12px; padding: 30px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="flag">&#127937;</span> ACC 커스텀 챔피언십 포인트</h1>
+  <span class="sub">아세토 코르사 컴페티치오네 — 결과 파일 기반 커스텀 포인트 집계</span>
+</header>
+<main>
+
+  <!-- 1. 파일 불러오기 -->
+  <section>
+    <h2>&#128193; 결과 파일 불러오기</h2>
+    <div class="body">
+      <div id="dropzone">
+        <div><strong>ACC 결과 JSON 파일을 여기로 드래그</strong>하거나 클릭해서 선택하세요</div>
+        <div class="hint">위치: 문서\Assetto Corsa Competizione\Results &nbsp;·&nbsp; 폴더째 끌어다 놓아도 됩니다 (UTF-16 자동 처리)</div>
+      </div>
+      <div class="file-actions">
+        <button id="btnPickFiles" class="primary">파일 선택…</button>
+        <button id="btnPickFolder">폴더 선택…</button>
+        <button id="btnClear" class="danger">전체 초기화</button>
+        <span id="loadStatus"></span>
+      </div>
+      <input type="file" id="fileInput" multiple accept=".json,application/json" hidden>
+      <input type="file" id="folderInput" webkitdirectory hidden>
+    </div>
+  </section>
+
+  <!-- 2. 포인트 설정 -->
+  <section>
+    <h2>&#9881;&#65039; 포인트 설정
+      <span class="spacer"></span>
+      <select id="presetSelect" title="프리셋"></select>
+      <button id="btnAddPos" class="mini">+ 순위 추가</button>
+      <button id="btnRemovePos" class="mini">− 마지막 제거</button>
+    </h2>
+    <div class="body">
+      <div class="points-grid" id="pointsGrid"></div>
+      <div class="opt-row">
+        <label><input type="checkbox" id="optPole"> 폴 포지션 보너스</label>
+        <label class="dim">+<input type="number" id="poleBonus" value="1" min="0"> 점</label>
+        <label><input type="checkbox" id="optFL"> 패스티스트 랩 보너스</label>
+        <label class="dim">+<input type="number" id="flBonus" value="1" min="0"> 점</label>
+        <label><input type="checkbox" id="optDrop"> 드롭 라운드</label>
+        <label class="dim">최하위 <input type="number" id="dropCount" value="1" min="1"> 라운드 제외</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. 라운드 -->
+  <section>
+    <h2>&#127950;&#65039; 라운드 (레이스 세션)
+      <span class="spacer"></span>
+      <span class="sub" id="qualiInfo" style="font-weight:400;font-size:12px;color:var(--muted)"></span>
+    </h2>
+    <div class="body" id="roundsBody"></div>
+  </section>
+
+  <!-- 4. 순위표 -->
+  <section>
+    <h2>&#127942; 챔피언십 순위표
+      <span class="spacer"></span>
+      <select id="classFilter">
+        <option value="-1">전체 클래스</option>
+        <option value="0">Overall / Pro</option>
+        <option value="1">Pro-Am</option>
+        <option value="2">Am</option>
+        <option value="3">Silver</option>
+      </select>
+      <label style="font-size:12px;display:flex;align-items:center;gap:5px;font-weight:400">
+        <input type="checkbox" id="optTeams"> 팀 순위
+      </label>
+      <button id="btnCsv" class="mini">CSV 내보내기</button>
+    </h2>
+    <div class="body" id="standingsBody"></div>
+  </section>
+
+</main>
+<footer>ACC Custom Championship Points · 로컬에서만 동작하며 어떤 데이터도 전송하지 않습니다</footer>
+
+<script>
+/*__CORE_START__*/
+// ============================================================
+// 핵심 로직 (UI 비의존 — 테스트에서 그대로 사용)
+// ============================================================
+const DEFAULT_POINTS = [12, 10, 8, 7, 6, 5, 4, 3, 2, 1];
+
+const PRESETS = [
+  { id: "custom12", name: "기본 12-10-8-7-6-5-4-3-2-1", points: [12, 10, 8, 7, 6, 5, 4, 3, 2, 1] },
+  { id: "f1",       name: "F1 25-18-15-12-10-8-6-4-2-1", points: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1] },
+  { id: "cyber",    name: "사이버 포뮬러 10-6-4-3-2-1",   points: [10, 6, 4, 3, 2, 1] },
+  { id: "motogp",   name: "MotoGP 25-20-16-13-11-10-9-8-7-6-5-4-3-2-1", points: [25, 20, 16, 13, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1] },
+];
+
+// ACC 결과 파일은 UTF-16 LE. BOM으로 판별하고, BOM이 없어도 NUL 바이트 패턴으로 추정한다.
+function decodeResultBuffer(buf) {
+  const u8 = new Uint8Array(buf);
+  if (u8.length >= 2 && u8[0] === 0xFF && u8[1] === 0xFE) return new TextDecoder("utf-16le").decode(buf);
+  if (u8.length >= 2 && u8[0] === 0xFE && u8[1] === 0xFF) return new TextDecoder("utf-16be").decode(buf);
+  let nulEven = 0, nulOdd = 0;
+  const n = Math.min(u8.length, 512);
+  for (let i = 0; i < n; i++) if (u8[i] === 0) (i % 2 === 0 ? nulEven++ : nulOdd++);
+  if (nulOdd > n / 8) return new TextDecoder("utf-16le").decode(buf);
+  if (nulEven > n / 8) return new TextDecoder("utf-16be").decode(buf);
+  return new TextDecoder("utf-8").decode(buf);
+}
+
+// 'R' = 레이스, 'Q' = 퀄리파잉, 'P' = 그 외(프랙티스 등)
+function detectSessionType(json) {
+  const def = json.sessionDef || {};
+  let t = def.sessionType ?? json.sessionType ?? (json.sessionResult && json.sessionResult.type);
+  if (typeof t === "string") {
+    const s = t.toUpperCase();
+    if (s.startsWith("R")) return "R";
+    if (s.startsWith("Q")) return "Q";
+    return "P";
+  }
+  if (typeof t === "number") {
+    if (t === 10) return "R"; // 오프라인 커스텀 챔피언십 포맷
+    if (t === 4) return "Q";
+    if (t === 1 && json.sessionResult) return "R"; // 서버 덤프 포맷의 sessionResult.type
+    return "P";
+  }
+  return "P";
+}
+
+function getTrackName(json) {
+  const def = json.sessionDef || {};
+  return def.trackName || def.track || json.trackName || json.track || "(알 수 없는 트랙)";
+}
+
+const TRACK_NAMES = {
+  monza: "Monza", zolder: "Zolder", brands_hatch: "Brands Hatch", silverstone: "Silverstone",
+  paul_ricard: "Paul Ricard", misano: "Misano", spa: "Spa-Francorchamps", nurburgring: "Nürburgring",
+  nurburgring_24h: "Nürburgring 24h", barcelona: "Barcelona", hungaroring: "Hungaroring",
+  zandvoort: "Zandvoort", kyalami: "Kyalami", mount_panorama: "Mount Panorama (Bathurst)",
+  suzuka: "Suzuka", laguna_seca: "Laguna Seca", imola: "Imola", oulton_park: "Oulton Park",
+  donington: "Donington Park", snetterton: "Snetterton", cota: "COTA (Austin)",
+  indianapolis: "Indianapolis", watkins_glen: "Watkins Glen", valencia: "Valencia",
+  red_bull_ring: "Red Bull Ring",
+};
+
+function prettyTrack(raw) {
+  if (!raw) return "(알 수 없는 트랙)";
+  const key = String(raw).toLowerCase().replace(/_\d{4}$/, "");
+  return TRACK_NAMES[key] || raw;
+}
+
+// 결과 JSON 텍스트 → 세션 객체. 리더보드가 없으면 null.
+function parseSession(text, fileName, fileTime) {
+  let json;
+  try { json = JSON.parse(text); } catch { return null; }
+  const lines = (json.snapShot && json.snapShot.leaderBoardLines)
+    || (json.sessionResult && json.sessionResult.leaderBoardLines);
+  if (!Array.isArray(lines) || lines.length === 0) return null;
+
+  // 파일명에 yyMMdd_HHmmss 타임스탬프가 있으면 우선 사용 (서버 덤프 포맷)
+  let time = fileTime || 0;
+  const m = /(\d{6})_(\d{6})/.exec(fileName || "");
+  if (m) {
+    const d = m[1], t = m[2];
+    const dt = new Date(2000 + +d.slice(0, 2), +d.slice(2, 4) - 1, +d.slice(4, 6),
+      +t.slice(0, 2), +t.slice(2, 4), +t.slice(4, 6));
+    if (!isNaN(dt)) time = dt.getTime();
+  }
+
+  const parsed = lines.map((ln) => {
+    const car = ln.car || {};
+    const drivers = car.drivers || [];
+    const d0 = drivers[0] || {};
+    const name = (d0.lastName || "").trim()
+      || [d0.firstName, d0.lastName].filter(Boolean).join(" ").trim()
+      || d0.shortName || `#${car.raceNumber}`;
+    const timing = ln.timing || {};
+    return {
+      raceNumber: car.raceNumber ?? -1,
+      name,
+      team: (car.teamName || "").trim(),
+      cupCategory: car.cupCategory ?? 0,
+      lapCount: timing.lapCount ?? 0,
+      bestLap: timing.bestLap ?? 0,
+      totalTime: timing.totalTime ?? 0,
+    };
+  });
+
+  return {
+    fileName: fileName || "",
+    time,
+    trackRaw: getTrackName(json),
+    type: detectSessionType(json),
+    lines: parsed,
+  };
+}
+
+// 같은 트랙에서 레이스보다 먼저 끝난 가장 가까운 퀄리파잉의 1위 → 폴
+function findPoleRaceNumber(race, qualiSessions) {
+  let best = null;
+  for (const q of qualiSessions) {
+    if (q.trackRaw !== race.trackRaw) continue;
+    if (race.time && q.time && q.time > race.time) continue;
+    if (!best || (q.time || 0) > (best.time || 0)) best = q;
+  }
+  return best && best.lines[0] ? best.lines[0].raceNumber : null;
+}
+
+const INVALID_LAP = 2147483647; // ACC가 미기록 랩에 쓰는 값
+
+function findFastestLapRaceNumber(race) {
+  let best = null;
+  for (const ln of race.lines) {
+    if (!ln.lapCount || !ln.bestLap || ln.bestLap <= 0 || ln.bestLap >= INVALID_LAP) continue;
+    if (!best || ln.bestLap < best.bestLap) best = ln;
+  }
+  return best ? best.raceNumber : null;
+}
+
+// races: 라운드 순서대로 정렬된 레이스 세션 배열 (각 항목에 poleRaceNumber가 미리 셋팅돼 있을 수 있음)
+// settings: { points:[], poleBonus:0, flBonus:0, dropCount:0 }
+function computeChampionship(races, settings) {
+  const pts = settings.points || DEFAULT_POINTS;
+  const poleBonus = settings.poleBonus || 0;
+  const flBonus = settings.flBonus || 0;
+  const dropCount = settings.dropCount || 0;
+
+  const drivers = new Map(); // raceNumber → entry
+  const roundResults = [];   // 라운드별 {raceNumber → {pos, points, pole, fl}}
+
+  races.forEach((race, ri) => {
+    const flNum = flBonus > 0 ? findFastestLapRaceNumber(race) : null;
+    const poleNum = poleBonus > 0 ? (race.poleRaceNumber ?? null) : null;
+    const perDriver = new Map();
+
+    race.lines.forEach((ln, idx) => {
+      const base = pts[idx] || 0;
+      let bonus = 0, pole = false, fl = false;
+      if (poleNum !== null && ln.raceNumber === poleNum) { bonus += poleBonus; pole = true; }
+      if (flNum !== null && ln.raceNumber === flNum) { bonus += flBonus; fl = true; }
+      perDriver.set(ln.raceNumber, { pos: idx + 1, points: base + bonus, base, bonus, pole, fl });
+
+      let e = drivers.get(ln.raceNumber);
+      if (!e) {
+        e = { raceNumber: ln.raceNumber, name: ln.name, team: ln.team, cupCategory: ln.cupCategory,
+              wins: 0, podiums: 0, poles: 0, fls: 0, posCount: {}, perRound: new Array(races.length).fill(null) };
+        drivers.set(ln.raceNumber, e);
+      }
+      // 최근 레이스 기준으로 이름/팀 갱신
+      e.name = ln.name; if (ln.team) e.team = ln.team; e.cupCategory = ln.cupCategory;
+      if (idx === 0) e.wins++;
+      if (idx < 3) e.podiums++;
+      if (pole) e.poles++;
+      if (fl) e.fls++;
+      e.posCount[idx + 1] = (e.posCount[idx + 1] || 0) + 1;
+      e.perRound[ri] = perDriver.get(ln.raceNumber);
+    });
+    roundResults.push(perDriver);
+  });
+
+  // 드롭 라운드: 결장은 0점으로 간주하고 가장 낮은 dropCount개 라운드 점수를 제외
+  const standings = [...drivers.values()].map((e) => {
+    const scores = e.perRound.map((r) => (r ? r.points : 0));
+    const dropIdx = new Set();
+    if (dropCount > 0 && races.length > 0) {
+      const order = scores.map((s, i) => [s, i]).sort((a, b) => a[0] - b[0]);
+      for (let k = 0; k < Math.min(dropCount, races.length); k++) dropIdx.add(order[k][1]);
+    }
+    let total = 0;
+    scores.forEach((s, i) => { if (!dropIdx.has(i)) total += s; });
+    return { ...e, total, dropIdx };
+  });
+
+  // 동점 처리: 총점 → 우승수 → 2위수 → 3위수 … → 이름
+  standings.sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    const maxPos = Math.max(
+      ...Object.keys(a.posCount).map(Number), ...Object.keys(b.posCount).map(Number), 1);
+    for (let p = 1; p <= maxPos; p++) {
+      const d = (b.posCount[p] || 0) - (a.posCount[p] || 0);
+      if (d !== 0) return d;
+    }
+    return String(a.name).localeCompare(String(b.name), "ko");
+  });
+
+  return { standings, roundResults };
+}
+
+function formatLapTime(ms) {
+  if (!ms || ms <= 0 || ms >= INVALID_LAP) return "—";
+  const t = Math.round(ms);
+  const m = Math.floor(t / 60000), s = Math.floor((t % 60000) / 1000), f = t % 1000;
+  return `${m}:${String(s).padStart(2, "0")}.${String(f).padStart(3, "0")}`;
+}
+
+function formatTotalTime(ms) {
+  if (!ms || ms <= 0 || ms >= INVALID_LAP * 2) return "—";
+  const t = Math.round(ms);
+  const h = Math.floor(t / 3600000), m = Math.floor((t % 3600000) / 60000),
+        s = Math.floor((t % 60000) / 1000), f = t % 1000;
+  return (h ? `${h}:${String(m).padStart(2, "0")}` : `${m}`) +
+    `:${String(s).padStart(2, "0")}.${String(f).padStart(3, "0")}`;
+}
+/*__CORE_END__*/
+
+// ============================================================
+// 앱 상태 + 저장
+// ============================================================
+const STORE_KEY = "accChampPoints.v1";
+
+const state = {
+  sessions: [],          // parseSession 결과 + id
+  order: [],             // 레이스 세션 id의 라운드 순서
+  included: {},          // id → bool
+  settings: {
+    points: [...DEFAULT_POINTS],
+    poleOn: false, poleBonus: 1,
+    flOn: false, flBonus: 1,
+    dropOn: false, dropCount: 1,
+    classFilter: -1, teamsOn: false,
+  },
+};
+
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (Array.isArray(s.sessions)) state.sessions = s.sessions;
+    if (Array.isArray(s.order)) state.order = s.order;
+    if (s.included) state.included = s.included;
+    if (s.settings) Object.assign(state.settings, s.settings);
+  } catch {}
+}
+
+function sessionId(sess) { return `${sess.fileName}|${sess.time}`; }
+
+function raceSessions() {
+  const byId = new Map(state.sessions.filter(s => s.type === "R").map(s => [sessionId(s), s]));
+  // order에 없는 새 레이스는 시간순으로 뒤에 붙인다
+  const known = state.order.filter(id => byId.has(id));
+  const rest = [...byId.keys()].filter(id => !known.includes(id))
+    .sort((a, b) => (byId.get(a).time || 0) - (byId.get(b).time || 0));
+  state.order = [...known, ...rest];
+  return state.order.map(id => byId.get(id));
+}
+
+function includedRaces() {
+  return raceSessions().filter(s => state.included[sessionId(s)] !== false);
+}
+
+// ============================================================
+// 파일 로딩
+// ============================================================
+async function addFiles(files) {
+  let ok = 0, skipped = 0;
+  for (const f of files) {
+    if (!/\.json$/i.test(f.name)) { continue; }
+    try {
+      const buf = await f.arrayBuffer();
+      const sess = parseSession(decodeResultBuffer(buf), f.name, f.lastModified);
+      if (!sess) { skipped++; continue; }
+      const id = sessionId(sess);
+      const existing = state.sessions.findIndex(s => sessionId(s) === id);
+      if (existing >= 0) state.sessions[existing] = sess; else state.sessions.push(sess);
+      ok++;
+    } catch { skipped++; }
+  }
+  const races = state.sessions.filter(s => s.type === "R").length;
+  document.getElementById("loadStatus").textContent =
+    `${ok}개 읽음${skipped ? `, ${skipped}개 건너뜀` : ""} · 레이스 ${races}개 / 전체 세션 ${state.sessions.length}개`;
+  save(); renderAll();
+}
+
+async function collectDropped(dt) {
+  const files = [];
+  const walk = async (entry) => {
+    if (entry.isFile) {
+      await new Promise(res => entry.file(f => { files.push(f); res(); }, res));
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      let batch;
+      do {
+        batch = await new Promise(res => reader.readEntries(res, () => res([])));
+        for (const e of batch) await walk(e);
+      } while (batch.length);
+    }
+  };
+  if (dt.items) {
+    for (const item of [...dt.items]) {
+      const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+      if (entry) await walk(entry);
+      else { const f = item.getAsFile && item.getAsFile(); if (f) files.push(f); }
+    }
+  }
+  if (!files.length && dt.files) files.push(...dt.files);
+  return files;
+}
+
+// ============================================================
+// 렌더링
+// ============================================================
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function currentSettings() {
+  const s = state.settings;
+  return {
+    points: s.points,
+    poleBonus: s.poleOn ? s.poleBonus : 0,
+    flBonus: s.flOn ? s.flBonus : 0,
+    dropCount: s.dropOn ? s.dropCount : 0,
+  };
+}
+
+function preparedRaces() {
+  const qualis = state.sessions.filter(s => s.type === "Q");
+  return includedRaces().map(r => ({ ...r, poleRaceNumber: findPoleRaceNumber(r, qualis) }));
+}
+
+function renderPointsEditor() {
+  const s = state.settings;
+  const grid = document.getElementById("pointsGrid");
+  grid.innerHTML = s.points.map((p, i) => `
+    <div class="pt-cell">
+      <label>${i + 1}위</label>
+      <input type="number" data-pos="${i}" value="${p}" min="0">
+    </div>`).join("");
+  grid.querySelectorAll("input").forEach(inp => {
+    inp.addEventListener("change", () => {
+      s.points[+inp.dataset.pos] = Math.max(0, +inp.value || 0);
+      save(); renderResults();
+    });
+  });
+
+  const sel = document.getElementById("presetSelect");
+  if (!sel.options.length) {
+    sel.innerHTML = `<option value="">프리셋 선택…</option>` +
+      PRESETS.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+  }
+
+  document.getElementById("optPole").checked = s.poleOn;
+  document.getElementById("poleBonus").value = s.poleBonus;
+  document.getElementById("optFL").checked = s.flOn;
+  document.getElementById("flBonus").value = s.flBonus;
+  document.getElementById("optDrop").checked = s.dropOn;
+  document.getElementById("dropCount").value = s.dropCount;
+}
+
+function renderRounds() {
+  const body = document.getElementById("roundsBody");
+  const races = raceSessions();
+  const qualis = state.sessions.filter(s => s.type === "Q").length;
+  document.getElementById("qualiInfo").textContent =
+    qualis ? `퀄리파잉 ${qualis}개 인식됨 — 폴 보너스 매칭에 사용` : "";
+
+  if (!races.length) {
+    body.innerHTML = `<div class="empty-note">아직 불러온 레이스가 없습니다. 위에서 결과 파일을 불러오세요.</div>`;
+    return;
+  }
+
+  const settings = currentSettings();
+  const prepared = preparedRaces();
+  const { roundResults } = computeChampionship(prepared, settings);
+  const preparedIds = prepared.map(sessionId);
+
+  let roundNo = 0;
+  body.innerHTML = races.map((r, i) => {
+    const id = sessionId(r);
+    const inc = state.included[id] !== false;
+    if (inc) roundNo++;
+    const date = r.time ? new Date(r.time).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "";
+    const winner = r.lines[0];
+    const pIdx = preparedIds.indexOf(id);
+    const res = pIdx >= 0 ? roundResults[pIdx] : null;
+
+    const detailRows = r.lines.map((ln, li) => {
+      const dr = res && res.get(ln.raceNumber);
+      const marks = dr ? `${dr.pole ? '<span class="bonus-mark p">P</span>' : ""}${dr.fl ? '<span class="bonus-mark f">FL</span>' : ""}` : "";
+      return `<tr class="pos-${li + 1}">
+        <td>${li + 1}</td>
+        <td class="l"><span class="race-num">#${ln.raceNumber}</span>${esc(ln.name)}${marks}</td>
+        <td class="l team-cell">${esc(ln.team || "—")}</td>
+        <td>${ln.lapCount}</td>
+        <td>${formatLapTime(ln.bestLap)}</td>
+        <td>${formatTotalTime(ln.totalTime)}</td>
+        <td class="total">${dr ? dr.points : "—"}</td>
+      </tr>`;
+    }).join("");
+
+    return `<div class="round-card ${inc ? "" : "excluded"}">
+      <div class="round-head">
+        <span class="round-no">${inc ? "R" + roundNo : "제외"}</span>
+        <span class="round-title">${esc(prettyTrack(r.trackRaw))}</span>
+        <span class="round-meta">${esc(date)} · ${esc(r.fileName)} · 우승 #${winner.raceNumber} ${esc(winner.name)}</span>
+        <span class="grow"></span>
+        <button class="mini" data-act="up" data-id="${esc(id)}" ${i === 0 ? "disabled" : ""}>▲</button>
+        <button class="mini" data-act="down" data-id="${esc(id)}" ${i === races.length - 1 ? "disabled" : ""}>▼</button>
+        <label style="font-size:12px;display:flex;gap:5px;align-items:center">
+          <input type="checkbox" data-act="inc" data-id="${esc(id)}" ${inc ? "checked" : ""}> 포함
+        </label>
+        <button class="mini danger" data-act="del" data-id="${esc(id)}">삭제</button>
+      </div>
+      <details class="round-detail">
+        <summary>레이스 결과 보기 (${r.lines.length}명)</summary>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>순위</th><th class="l">드라이버</th><th class="l">팀</th><th>랩</th><th>베스트 랩</th><th>총 시간</th><th>포인트</th></tr></thead>
+          <tbody>${detailRows}</tbody>
+        </table></div>
+      </details>
+    </div>`;
+  }).join("");
+
+  body.querySelectorAll("[data-act]").forEach(el => {
+    const id = el.dataset.id;
+    if (el.dataset.act === "inc") {
+      el.addEventListener("change", () => { state.included[id] = el.checked; save(); renderAll(); });
+    } else {
+      el.addEventListener("click", () => {
+        if (el.dataset.act === "del") {
+          state.sessions = state.sessions.filter(s => sessionId(s) !== id);
+          state.order = state.order.filter(o => o !== id);
+        } else {
+          const i = state.order.indexOf(id);
+          const j = el.dataset.act === "up" ? i - 1 : i + 1;
+          if (i >= 0 && j >= 0 && j < state.order.length) {
+            [state.order[i], state.order[j]] = [state.order[j], state.order[i]];
+          }
+        }
+        save(); renderAll();
+      });
+    }
+  });
+}
+
+function renderStandings() {
+  const body = document.getElementById("standingsBody");
+  const races = preparedRaces();
+  if (!races.length) {
+    body.innerHTML = `<div class="empty-note">포함된 라운드가 없습니다.</div>`;
+    return;
+  }
+  const settings = currentSettings();
+  const { standings } = computeChampionship(races, settings);
+  const cf = state.settings.classFilter;
+  const rows = standings.filter(e => cf < 0 || e.cupCategory === cf);
+
+  const roundHead = races.map((_, i) => `<th>R${i + 1}</th>`).join("");
+  const bonusCols = (settings.poleBonus ? "<th>폴</th>" : "") + (settings.flBonus ? "<th>FL</th>" : "");
+
+  const trs = rows.map((e, i) => {
+    const cells = e.perRound.map((r, ri) => {
+      if (!r) return `<td class="zero">·</td>`;
+      const cls = e.dropIdx.has(ri) ? "dropped" : (r.points === 0 ? "zero" : "");
+      const marks = `${r.pole ? '<span class="bonus-mark p">P</span>' : ""}${r.fl ? '<span class="bonus-mark f">FL</span>' : ""}`;
+      return `<td class="${cls}" title="${ri + 1}라운드 ${r.pos}위">${r.points}${marks}</td>`;
+    }).join("");
+    const bonusCells = (settings.poleBonus ? `<td>${e.poles || ""}</td>` : "")
+      + (settings.flBonus ? `<td>${e.fls || ""}</td>` : "");
+    return `<tr class="pos-${i + 1}">
+      <td>${i + 1}</td>
+      <td class="l"><span class="race-num">#${e.raceNumber}</span>${esc(e.name)}</td>
+      <td class="l team-cell">${esc(e.team || "—")}</td>
+      <td class="total">${e.total}</td>
+      ${cells}
+      <td>${e.wins || ""}</td>${bonusCells}
+    </tr>`;
+  }).join("");
+
+  let html = `<div class="tbl-wrap"><table>
+    <thead><tr><th>순위</th><th class="l">드라이버</th><th class="l">팀</th><th>총점</th>${roundHead}<th>우승</th>${bonusCols}</tr></thead>
+    <tbody>${trs}</tbody>
+  </table></div>`;
+
+  if (state.settings.teamsOn) {
+    const teams = new Map();
+    for (const e of rows) {
+      const key = e.team || "(팀 없음)";
+      const t = teams.get(key) || { team: key, total: 0, drivers: [] };
+      t.total += e.total; t.drivers.push(e.name);
+      teams.set(key, t);
+    }
+    const tRows = [...teams.values()].sort((a, b) => b.total - a.total)
+      .map((t, i) => `<tr class="pos-${i + 1}"><td>${i + 1}</td><td class="l">${esc(t.team)}</td>
+        <td class="l team-cell">${esc(t.drivers.join(", "))}</td><td class="total">${t.total}</td></tr>`).join("");
+    html += `<h3 class="sub-title">팀 순위</h3><div class="tbl-wrap"><table>
+      <thead><tr><th>순위</th><th class="l">팀</th><th class="l">드라이버</th><th>총점</th></tr></thead>
+      <tbody>${tRows}</tbody></table></div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+function renderResults() { renderRounds(); renderStandings(); }
+function renderAll() { renderPointsEditor(); renderResults(); }
+
+function exportCsv() {
+  const races = preparedRaces();
+  if (!races.length) return;
+  const { standings } = computeChampionship(races, currentSettings());
+  const cf = state.settings.classFilter;
+  const rows = standings.filter(e => cf < 0 || e.cupCategory === cf);
+  const head = ["순위", "번호", "드라이버", "팀", "총점", ...races.map((_, i) => `R${i + 1}`), "우승"];
+  const csv = [head, ...rows.map((e, i) => [
+    i + 1, e.raceNumber, e.name, e.team || "",
+    e.total, ...e.perRound.map(r => (r ? r.points : "")), e.wins,
+  ])].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "championship_standings.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ============================================================
+// 이벤트 바인딩
+// ============================================================
+function bind() {
+  const dz = document.getElementById("dropzone");
+  const fileInput = document.getElementById("fileInput");
+  const folderInput = document.getElementById("folderInput");
+
+  dz.addEventListener("click", () => fileInput.click());
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", async e => {
+    e.preventDefault(); dz.classList.remove("drag");
+    addFiles(await collectDropped(e.dataTransfer));
+  });
+  document.getElementById("btnPickFiles").addEventListener("click", () => fileInput.click());
+  document.getElementById("btnPickFolder").addEventListener("click", () => folderInput.click());
+  fileInput.addEventListener("change", () => { addFiles([...fileInput.files]); fileInput.value = ""; });
+  folderInput.addEventListener("change", () => { addFiles([...folderInput.files]); folderInput.value = ""; });
+
+  document.getElementById("btnClear").addEventListener("click", () => {
+    if (!state.sessions.length || confirm("불러온 모든 결과를 지울까요? (포인트 설정은 유지됩니다)")) {
+      state.sessions = []; state.order = []; state.included = {};
+      document.getElementById("loadStatus").textContent = "";
+      save(); renderAll();
+    }
+  });
+
+  document.getElementById("presetSelect").addEventListener("change", e => {
+    const p = PRESETS.find(x => x.id === e.target.value);
+    if (p) { state.settings.points = [...p.points]; save(); renderAll(); }
+    e.target.value = "";
+  });
+  document.getElementById("btnAddPos").addEventListener("click", () => {
+    state.settings.points.push(0); save(); renderAll();
+  });
+  document.getElementById("btnRemovePos").addEventListener("click", () => {
+    if (state.settings.points.length > 1) { state.settings.points.pop(); save(); renderAll(); }
+  });
+
+  const s = state.settings;
+  const opt = (id, key, isNum) => document.getElementById(id).addEventListener("change", e => {
+    s[key] = isNum ? Math.max(0, +e.target.value || 0) : e.target.checked;
+    save(); renderResults();
+  });
+  opt("optPole", "poleOn"); opt("poleBonus", "poleBonus", true);
+  opt("optFL", "flOn"); opt("flBonus", "flBonus", true);
+  opt("optDrop", "dropOn"); opt("dropCount", "dropCount", true);
+
+  document.getElementById("classFilter").addEventListener("change", e => {
+    s.classFilter = +e.target.value; save(); renderStandings();
+  });
+  document.getElementById("optTeams").addEventListener("change", e => {
+    s.teamsOn = e.target.checked; save(); renderStandings();
+  });
+  document.getElementById("btnCsv").addEventListener("click", exportCsv);
+}
+
+load();
+bind();
+document.getElementById("classFilter").value = String(state.settings.classFilter);
+document.getElementById("optTeams").checked = state.settings.teamsOn;
+renderAll();
+</script>
+</body>
+</html>
