@@ -255,6 +255,11 @@
   .lap-item .x { color: #ff5a52; }
 
   /* ---------- 메이커 칩 / 아바타 / 순위 변동 ---------- */
+  .mk-logo {
+    height: 17px; max-width: 46px; object-fit: contain;
+    background: #fff; border-radius: 3px; padding: 1px 4px;
+    margin-right: 7px; vertical-align: middle; display: inline-block;
+  }
   .mk {
     display: inline-block; min-width: 36px; margin-right: 7px; padding: 1px 6px;
     font-family: var(--disp); font-style: italic; font-weight: 700; font-size: 10px;
@@ -1141,7 +1146,11 @@ function preparedRaces() {
 
 function makerChipHtml(carModel) {
   const m = makerOf(carModel);
-  return m ? `<span class="mk" style="background:${m.bg};color:${m.fg}">${m.code}</span>` : "";
+  if (!m) return "";
+  // index.html 옆 logos/ 폴더에 <코드>.png가 있으면 로고 배지, 없으면 텍스트 칩
+  return `<img class="mk-logo" src="logos/${m.code}.png" alt="${m.code}" loading="lazy"
+      onerror="this.style.display='none';this.nextElementSibling.style.display=''">` +
+    `<span class="mk" style="background:${m.bg};color:${m.fg};display:none">${m.code}</span>`;
 }
 
 function qualiStatText(e) {
