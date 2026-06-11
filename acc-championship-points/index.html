@@ -224,54 +224,36 @@
   .empty-note { color: var(--muted); text-align: center; padding: 28px 0; font-size: 13px; line-height: 1.8; }
   .team-cell { color: var(--muted); font-size: 12px; }
 
-  /* ---------- 순위표: F1식 브랜드 컬러 행 ---------- */
+  /* ---------- 순위표: 다크 행 + 포인트 바 ---------- */
   #standingsBody tbody tr.brand-row {
-    background: var(--row-bg, var(--panel2));
-    color: var(--row-fg, var(--text));
+    background: linear-gradient(90deg, rgba(225,6,0,.10) var(--bar, 0%), transparent var(--bar, 0%));
   }
   #standingsBody tbody tr.brand-row td {
-    border-bottom: 4px solid var(--bg);
+    border-bottom: 1px solid var(--border);
     padding-top: 9px; padding-bottom: 9px;
   }
-  #standingsBody tbody tr.brand-row:hover { filter: brightness(1.1); }
-  #standingsBody tbody tr.brand-row:hover td { background: transparent; }
+  #standingsBody tbody tr.brand-row:hover td { background: rgba(255,255,255,.03); }
   #standingsBody tr.pos-1 { box-shadow: inset 4px 0 0 var(--gold); }
   #standingsBody tr.pos-2 { box-shadow: inset 4px 0 0 var(--silver); }
   #standingsBody tr.pos-3 { box-shadow: inset 4px 0 0 var(--bronze); }
   #standingsBody td.pos-cell {
     font-family: var(--disp); font-style: italic; font-weight: 700; font-size: 18px;
-    color: inherit; min-width: 48px;
+    min-width: 48px;
   }
-  #standingsBody .pos-1 td.pos-cell, #standingsBody .pos-2 td.pos-cell,
-  #standingsBody .pos-3 td.pos-cell { color: inherit; }
-  #standingsBody td.total { color: inherit; }
-  #standingsBody td.zero { color: inherit; opacity: .4; }
-  #standingsBody td.dropped { color: inherit; opacity: .5; }
-  .drv-cell { min-width: 220px; }
+  .drv-cell { min-width: 230px; }
   .drv-names {
     display: inline-flex; flex-direction: column; vertical-align: middle;
     line-height: 1.2; text-align: left;
   }
   .drv-names b { font-size: 14px; letter-spacing: .3px; }
-  .drv-names small { font-size: 10px; opacity: .8; font-weight: 500; }
-  .drv-names .race-num {
-    background: rgba(0,0,0,.28); border: 0; color: inherit;
-    min-width: 0; margin-right: 6px; padding: 0 5px; font-size: 9px;
-  }
-  #standingsBody .avatar {
-    width: 30px; height: 30px; border: 2px solid rgba(255,255,255,.75);
-    background: rgba(0,0,0,.3); color: inherit;
-  }
+  .drv-names small { font-size: 10px; color: var(--muted); font-weight: 500; }
+  .drv-names .race-num { min-width: 0; margin-right: 6px; padding: 0 5px; font-size: 9px; }
+  #standingsBody .avatar { width: 30px; height: 30px; }
   #standingsBody .delta {
     display: inline-block; min-width: 30px; padding: 1px 5px; border-radius: 3px;
-    background: rgba(0,0,0,.3); font-size: 10px; text-align: center;
+    background: rgba(255,255,255,.05); font-size: 10px; text-align: center;
   }
-  #standingsBody .delta.up { color: #8dffbe; }
-  #standingsBody .delta.down { color: #ffb1aa; }
-  #standingsBody .delta.same { color: rgba(255,255,255,.55); }
-  #standingsBody .delta.new { color: var(--accent2); }
-  #standingsBody .bonus-mark.p { color: inherit; opacity: .9; }
-  #standingsBody .bonus-mark.f { color: inherit; opacity: .9; }
+  #standingsBody .mk-logo { height: 28px; max-width: 72px; padding: 2px 6px; }
 
   /* ---------- 랩별 기록 ---------- */
   .lap-btn { margin-left: 6px; }
@@ -293,7 +275,7 @@
 
   /* ---------- 메이커 칩 / 아바타 / 순위 변동 ---------- */
   .mk-logo {
-    height: 17px; max-width: 46px; object-fit: contain;
+    height: 20px; max-width: 56px; object-fit: contain;
     background: #fff; border-radius: 3px; padding: 1px 4px;
     margin-right: 7px; vertical-align: middle; display: inline-block;
   }
@@ -1184,9 +1166,9 @@ function preparedRaces() {
 function makerChipHtml(carModel) {
   const m = makerOf(carModel);
   if (!m) return "";
-  // index.html 옆 logos/ 폴더에 <코드>.png가 있으면 로고 배지, 없으면 텍스트 칩
-  return `<img class="mk-logo" src="logos/${m.code}.png" alt="${m.code}" loading="lazy"
-      onerror="this.style.display='none';this.nextElementSibling.style.display=''">` +
+  // logos/<코드>.svg → .png → 텍스트 칩 순서로 폴백
+  return `<img class="mk-logo" src="logos/${m.code}.svg" alt="${m.code}" loading="lazy" data-code="${m.code}"
+      onerror="if(!this.dataset.alt){this.dataset.alt=1;this.src='logos/'+this.dataset.code+'.png';}else{this.style.display='none';this.nextElementSibling.style.display='';}">` +
     `<span class="mk" style="background:${m.bg};color:${m.fg};display:none">${m.code}</span>`;
 }
 
@@ -1457,9 +1439,7 @@ function renderStandings() {
       img ? `<img src="${img}" alt="">` : esc(String(e.name).charAt(0))}</span>`;
     const { bestQ, avgQ } = qualiStatText(e);
     const flCell = settings.flBonus ? `<td>${e.fls || ""}</td>` : "";
-    const mk = makerOf(e.carModel);
-    const rowStyle = mk ? `--row-bg:${mk.bg};--row-fg:${mk.fg}` : "";
-    return `<tr class="pos-${i + 1} brand-row" style="${rowStyle}">
+    return `<tr class="pos-${i + 1} brand-row" style="--bar:${(e.total / maxTotal * 100).toFixed(1)}%">
       <td class="pos-cell">${i + 1}</td>
       <td>${delta}</td>
       <td class="l drv-cell">${avatar}${makerChipHtml(e.carModel)}
