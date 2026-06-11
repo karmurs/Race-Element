@@ -253,7 +253,16 @@
     display: inline-block; min-width: 30px; padding: 1px 5px; border-radius: 3px;
     background: rgba(255,255,255,.05); font-size: 10px; text-align: center;
   }
-  #standingsBody .mk-logo { height: 28px; max-width: 72px; padding: 2px 6px; }
+  /* 순위표: 로고를 고정 폭 박스에 가운데 정렬해 좌우 크기를 통일 */
+  #standingsBody .mk-box {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 64px; height: 30px; margin-right: 10px; vertical-align: middle; flex: none;
+  }
+  #standingsBody .mk-logo {
+    height: 26px; max-height: 26px; width: 60px; max-width: 60px;
+    margin: 0; padding: 2px 4px;
+  }
+  body.logo-noplate #standingsBody .mk-logo { padding: 0; }
 
   /* ---------- 랩별 기록 ---------- */
   .lap-btn { margin-left: 6px; }
@@ -1455,7 +1464,7 @@ function renderStandings() {
     return `<tr class="pos-${i + 1} brand-row" style="--bar:${(e.total / maxTotal * 100).toFixed(1)}%">
       <td class="pos-cell">${i + 1}</td>
       <td>${delta}</td>
-      <td class="l drv-cell">${avatar}${makerChipHtml(e.carModel)}
+      <td class="l drv-cell"><span class="mk-box">${makerChipHtml(e.carModel)}</span>${avatar}
         <span class="drv-names"><b>${esc(e.name)}</b><small><span class="race-num">#${e.raceNumber}</span>${esc(e.team || "")}</small></span></td>
       <td class="total">${e.total}</td>
       ${cells}
