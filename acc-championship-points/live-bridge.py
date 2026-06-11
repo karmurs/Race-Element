@@ -7,8 +7,9 @@
 #
 # 사용법:
 #   1) 문서\Assetto Corsa Competizione\Config\broadcasting.json 을 열어
-#      {"udpListenerPort": 9000, "connectionPassword": "asd", ...} 로 설정
-#      (파일 수정 후 게임 재시작)
+#      { "updListenerPort": 9000, "connectionPassword": "asd", "commandPassword": "" }
+#      로 설정 (키 이름이 'upd'ListenerPort — ACC 자체의 오타이므로 그대로!)
+#      파일 수정 후 게임을 완전히 재시작. 포트는 실제 세션(트랙 위)에서 열림.
 #   2) python live-bridge.py   (옵션: --password asd --acc-port 9000 --http-port 8927)
 #   3) index.html 의 "라이브 연결" 버튼 클릭
 #
@@ -184,36 +185,62 @@ class Bridge:
 
     # ---------- 연결 루프 ----------
     def run(self):
+        last_reg = 0.0
+        last_reg_print = 0.0
+        last_notice = 0.0
         while True:
             try:
-                self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                self.sock.settimeout(3.0)
-                self.sock.sendto(register_msg(self.password, self.update_ms), self.addr)
-                print(f"[브리지] ACC({self.addr[0]}:{self.addr[1]})에 등록 요청…")
-                self._last_rx = time.time()
-                while True:
-                    try:
-                        data, _ = self.sock.recvfrom(65535)
-                        self._last_rx = time.time()
-                        try:
-                            self.handle(data)
-                        except EOFError:
-                            pass
-                    except socket.timeout:
-                        if time.time() - self._last_rx > 6.0:
-                            raise ConnectionError("응답 없음")
-            except Exception as e:
-                with self.lock:
-                    self.session["connected"] = False
-                    self.cars.clear()
-                self.conn_id = None
-                print(f"[브리지] 연결 끊김({e}) — 5초 후 재시도 (게임이 켜져 있는지, "
-                      f"broadcasting.json 설정을 확인하세요)")
+                if self.sock is None:
+                    self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    self.sock.settimeout(2.0)
+                now = time.time()
+                if self.conn_id is None and now - last_reg > 3.0:
+                    last_reg = now
+                    self.sock.sendto(register_msg(self.password, self.update_ms), self.addr)
+                    if now - last_reg_print > 30:
+                        last_reg_print = now
+                        print(f"[브리지] ACC({self.addr[0]}:{self.addr[1]})에 등록 요청…")
                 try:
-                    self.sock.close()
+                    data, _ = self.sock.recvfrom(65535)
+                    self._last_rx = time.time()
+                    try:
+                        self.handle(data)
+                    except EOFError:
+                        pass
+                except ConnectionError:
+                    # WinError 10054 등: UDP 포트에 수신자가 없음 (ACC가 방송을 안 켠 상태)
+                    self._disconnect()
+                    if time.time() - last_notice > 15:
+                        last_notice = time.time()
+                        print(
+                            "[브리지] ACC가 UDP 포트를 열지 않았습니다 (WinError 10054). 확인 사항:\n"
+                            "  1) broadcasting.json의 키 이름은 'updListenerPort' 입니다\n"
+                            "     (udp가 아니라 upd — ACC 자체의 오타이므로 그대로 써야 합니다!)\n"
+                            '     예시: { "updListenerPort": 9000, "connectionPassword": "asd", "commandPassword": "" }\n'
+                            "  2) 파일 수정 후 게임을 완전히 재시작했는지\n"
+                            "  3) 메뉴가 아니라 실제 세션(트랙 위)에 들어가 있는지\n"
+                            "  계속 자동으로 재시도합니다…")
+                    time.sleep(2)
+                except socket.timeout:
+                    if self.conn_id is not None and time.time() - self._last_rx > 8.0:
+                        print("[브리지] 데이터 수신이 끊겼습니다 — 다시 등록합니다")
+                        self._disconnect()
+            except Exception as e:
+                print(f"[브리지] 오류({e}) — 3초 후 재시도")
+                self._disconnect()
+                try:
+                    if self.sock:
+                        self.sock.close()
                 except Exception:
                     pass
-                time.sleep(5)
+                self.sock = None
+                time.sleep(3)
+
+    def _disconnect(self):
+        self.conn_id = None
+        with self.lock:
+            self.session["connected"] = False
+            self.cars.clear()
 
     # ---------- HTTP 응답용 스냅샷 ----------
     def snapshot(self):
