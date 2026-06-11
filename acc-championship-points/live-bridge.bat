@@ -9,6 +9,16 @@ rem  so Korean text here would break on Korean Windows.)
 rem ============================================================
 chcp 65001 >nul
 cd /d "%~dp0"
+if not exist "live-bridge.py" (
+    echo [ERROR] live-bridge.py was not found in this folder:
+    echo         %~dp0
+    echo Put live-bridge.bat and live-bridge.py in the SAME folder,
+    echo then run this file again.
+    echo.
+    echo Press any key to close this window.
+    pause >nul
+    exit /b 1
+)
 where python >nul 2>nul
 if %errorlevel%==0 (
     python live-bridge.py %*
