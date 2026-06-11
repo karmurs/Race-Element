@@ -813,6 +813,7 @@ const state = {
   names: {},             // id → 수동 트랙/라운드 이름
   watchSeen: {},         // 감시 모드: 파일명 → 마지막으로 읽은 수정시각
   driverImages: {},      // raceNumber → 드라이버 사진 (dataURL)
+  lastLiveTrack: null,   // {name, time} 마지막으로 본 라이브 트랙 (새로고침 유지)
   seasons: [{ id: "s1", name: "챔피언십 1" }],
   currentSeason: "s1",
   settings: {
@@ -840,6 +841,7 @@ function load() {
     if (s.names) state.names = s.names;
     if (s.watchSeen) state.watchSeen = s.watchSeen;
     if (s.driverImages) state.driverImages = s.driverImages;
+    if (s.lastLiveTrack) state.lastLiveTrack = s.lastLiveTrack;
     if (Array.isArray(s.seasons) && s.seasons.length) state.seasons = s.seasons;
     if (s.currentSeason) state.currentSeason = s.currentSeason;
     if (s.settings) Object.assign(state.settings, s.settings);
@@ -890,11 +892,16 @@ async function addFiles(files) {
       if (!sess) { skipped++; continue; }
       sess.season = state.currentSeason;
       const id = sessionId(sess);
+      sess.importedAt = Date.now();
       const existing = state.sessions.findIndex(s => sessionId(s) === id);
       if (existing >= 0) state.sessions[existing] = sess; else state.sessions.push(sess);
-      // 결과 파일에 트랙 정보가 없으면 라이브 데이터의 트랙 이름으로 자동 명명
-      if (sess.type === "R" && !sess.trackRaw && liveTrackName && !state.names[id]) {
-        state.names[id] = prettyTrack(liveTrackName);
+      // 결과 파일에 트랙 정보가 없으면 라이브 데이터의 트랙 이름으로 자동 명명.
+      // 라이브가 막 끊겼거나 새로고침 직후라도, 최근(±3시간) 저장된 트랙이 있으면 사용.
+      if (sess.type === "R" && !sess.trackRaw && !state.names[id]) {
+        const lt = liveTrackName
+          || (state.lastLiveTrack && Math.abs(Date.now() - state.lastLiveTrack.time) < 3 * 3600 * 1000
+              ? state.lastLiveTrack.name : "");
+        if (lt) state.names[id] = prettyTrack(lt);
       }
       ok++;
     } catch { skipped++; }
@@ -1057,6 +1064,25 @@ const LIVE_INTERVAL_MS = 1000;
 let liveTimer = null;
 let liveTrackName = "";   // 방송 API의 트랙 이름 — 새 라운드 자동 이름에 사용
 
+// 라이브 트랙 이름을 저장하고(새로고침에도 유지), 이름 없이 최근 불러온
+// 레이스 라운드에 소급 적용한다. (파일이 먼저 들어오고 트랙이 늦게 와도 OK)
+function rememberLiveTrack(name) {
+  if (!name) return;
+  liveTrackName = name;
+  state.lastLiveTrack = { name, time: Date.now() };
+  let changed = false;
+  for (const sess of state.sessions) {
+    if (sess.type !== "R" || sess.trackRaw) continue;
+    const id = sessionId(sess);
+    if (state.names[id]) continue;
+    // 이번 세션에서 최근(30분 내) 불러온 라운드만 소급 적용
+    if (!sess.importedAt || Date.now() - sess.importedAt > 30 * 60 * 1000) continue;
+    state.names[id] = prettyTrack(name);
+    changed = true;
+  }
+  if (changed) { save(); renderResults(); } else { save(); }
+}
+
 function liveDriverName(car) {
   const d0 = (car.drivers || [])[0] || {};
   let name = (d0.lastName || "").trim() || (d0.firstName || "").trim()
@@ -1077,7 +1103,8 @@ async function pollLive() {
         <small>게임이 세션에 들어가 있어야 하며, broadcasting.json 설정 후 게임을 재시작해야 합니다.</small></div>`;
       return;
     }
-    if (s.track) liveTrackName = s.track;
+    if (s.track && s.track !== liveTrackName) rememberLiveTrack(s.track);
+    else if (s.track) liveTrackName = s.track;
     const remain = s.timeRemainMs != null
       ? `${Math.floor(s.timeRemainMs / 60000)}:${String(Math.floor(s.timeRemainMs % 60000 / 1000)).padStart(2, "0")}` : "—";
     const pts = state.settings.points;
