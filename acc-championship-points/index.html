@@ -69,7 +69,13 @@
   #dropzone strong { color: var(--text); }
   #dropzone .hint { font-size: 12px; margin-top: 8px; }
   .file-actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
-  #loadStatus { font-size: 13px; color: var(--muted); }
+  #loadStatus, #watchStatus { font-size: 13px; color: var(--muted); }
+  .watch-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--green); margin-right: 7px; vertical-align: baseline;
+    animation: watchPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes watchPulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 
   button, select, input[type=number], input[type=text] {
     background: var(--panel2);
@@ -188,6 +194,11 @@
         <button id="btnPickFolder">폴더 선택…</button>
         <button id="btnClear" class="danger">전체 초기화</button>
         <span id="loadStatus"></span>
+      </div>
+      <div class="file-actions" id="watchRow">
+        <button id="btnWatch">📡 Results 폴더 자동 감시</button>
+        <button id="btnWatchStop" class="danger" hidden>감시 중지</button>
+        <span id="watchStatus"></span>
       </div>
       <input type="file" id="fileInput" multiple accept=".json,application/json" hidden>
       <input type="file" id="folderInput" webkitdirectory hidden>
@@ -547,6 +558,7 @@ const state = {
   order: [],             // 레이스 세션 id의 라운드 순서
   included: {},          // id → bool
   names: {},             // id → 수동 트랙/라운드 이름
+  watchSeen: {},         // 감시 모드: 파일명 → 마지막으로 읽은 수정시각
   seasons: [{ id: "s1", name: "챔피언십 1" }],
   currentSeason: "s1",
   settings: {
@@ -571,6 +583,7 @@ function load() {
     if (Array.isArray(s.order)) state.order = s.order;
     if (s.included) state.included = s.included;
     if (s.names) state.names = s.names;
+    if (s.watchSeen) state.watchSeen = s.watchSeen;
     if (Array.isArray(s.seasons) && s.seasons.length) state.seasons = s.seasons;
     if (s.currentSeason) state.currentSeason = s.currentSeason;
     if (s.settings) Object.assign(state.settings, s.settings);
@@ -656,6 +669,124 @@ async function collectDropped(dt) {
   }
   if (!files.length && dt.files) files.push(...dt.files);
   return files;
+}
+
+// ============================================================
+// 폴더 자동 감시 (File System Access API — 크롬/엣지)
+// 폴더를 한 번 지정하면 주기적으로 확인해서, ACC가 결과 파일을
+// 새로 쓸 때마다 자동으로 불러온다. 핸들은 IndexedDB에 저장되어
+// 다시 열어도 클릭 한 번으로 감시를 재개할 수 있다.
+// ============================================================
+const WATCH_INTERVAL_MS = 5000;
+let watchHandle = null, watchTimer = null;
+
+const handleStore = {
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open("accChampPoints.fs", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("handles");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async set(v) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").put(v, "resultsDir");
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  },
+  async get() {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const rq = db.transaction("handles").objectStore("handles").get("resultsDir");
+      rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error);
+    });
+  },
+  async clear() {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").delete("resultsDir");
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  },
+};
+
+function setWatchStatus(text, on) {
+  const el = document.getElementById("watchStatus");
+  el.innerHTML = (on ? '<span class="watch-dot"></span>' : "") + esc(text);
+  document.getElementById("btnWatch").hidden = !!on;
+  document.getElementById("btnWatchStop").hidden = !on;
+}
+
+async function pollWatch() {
+  if (!watchHandle) return;
+  try {
+    const fresh = [];
+    for await (const entry of watchHandle.values()) {
+      if (entry.kind !== "file" || !/\.json$/i.test(entry.name)) continue;
+      const f = await entry.getFile();
+      if (state.watchSeen[entry.name] === f.lastModified) continue;
+      state.watchSeen[entry.name] = f.lastModified;
+      fresh.push(f);
+    }
+    if (fresh.length) await addFiles(fresh);
+    setWatchStatus(`감시 중 · 마지막 확인 ${new Date().toLocaleTimeString("ko-KR")}` +
+      (fresh.length ? ` · 새 결과 ${fresh.length}개 추가됨` : ""), true);
+  } catch (e) {
+    setWatchStatus(`감시 오류: ${e.message} — 다시 시도합니다`, true);
+  }
+}
+
+async function startWatch(handle) {
+  watchHandle = handle;
+  await handleStore.set(handle).catch(() => {});
+  if (watchTimer) clearInterval(watchTimer);
+  setWatchStatus("감시 시작…", true);
+  await pollWatch();
+  watchTimer = setInterval(pollWatch, WATCH_INTERVAL_MS);
+}
+
+function stopWatch() {
+  if (watchTimer) clearInterval(watchTimer);
+  watchTimer = null; watchHandle = null;
+  handleStore.clear().catch(() => {});
+  setWatchStatus("", false);
+  document.getElementById("btnWatch").textContent = "📡 Results 폴더 자동 감시";
+}
+
+async function onWatchClick() {
+  try {
+    let handle = await handleStore.get().catch(() => null);
+    if (handle) {
+      // 저장된 폴더가 있으면 권한만 다시 받는다
+      const perm = await handle.requestPermission({ mode: "read" });
+      if (perm !== "granted") handle = null;
+    }
+    if (!handle) handle = await window.showDirectoryPicker({ id: "accResults" });
+    await startWatch(handle);
+  } catch (e) {
+    if (e && e.name !== "AbortError") alert("폴더 감시를 시작하지 못했습니다: " + e.message);
+  }
+}
+
+async function tryResumeWatch() {
+  if (!window.showDirectoryPicker) {
+    document.getElementById("watchRow").hidden = true; // 미지원 브라우저(모바일 등)
+    return;
+  }
+  const handle = await handleStore.get().catch(() => null);
+  if (!handle) return;
+  try {
+    const perm = await handle.queryPermission({ mode: "read" });
+    if (perm === "granted") await startWatch(handle);
+    else {
+      document.getElementById("btnWatch").textContent = "📡 폴더 감시 재개 (클릭)";
+      setWatchStatus("이전에 감시하던 폴더가 있습니다", false);
+    }
+  } catch {}
 }
 
 // ============================================================
@@ -1004,6 +1135,9 @@ function bind() {
   opt("optFL", "flOn"); opt("flBonus", "flBonus", true);
   opt("optDrop", "dropOn"); opt("dropCount", "dropCount", true);
 
+  document.getElementById("btnWatch").addEventListener("click", onWatchClick);
+  document.getElementById("btnWatchStop").addEventListener("click", stopWatch);
+
   document.getElementById("seasonSelect").addEventListener("change", e => {
     state.currentSeason = e.target.value; save(); renderAll();
   });
@@ -1046,6 +1180,7 @@ bind();
 document.getElementById("classFilter").value = String(state.settings.classFilter);
 document.getElementById("optTeams").checked = state.settings.teamsOn;
 renderAll();
+tryResumeWatch();
 </script>
 </body>
 </html>
