@@ -223,6 +223,10 @@
         <label><input type="checkbox" id="optDrop"> 드롭 라운드</label>
         <label class="dim">최하위 <input type="number" id="dropCount" value="1" min="1"> 라운드 제외</label>
       </div>
+      <div class="opt-row">
+        <label><input type="checkbox" id="optTeamName"> 팀명을 드라이버 이름으로 표시</label>
+        <span class="dim">오프라인 챔피언십은 게임이 팀명 칸의 이름을 리더보드에 표시합니다 (AI 챔피언십이면 끄세요)</span>
+      </div>
     </div>
   </section>
 
@@ -399,18 +403,32 @@ function parseSession(text, fileName, fileTime) {
     if (!isNaN(dt)) time = dt.getTime();
   }
 
+  const isOffline = !!(json.snapShot && json.snapShot.leaderBoardLines);
   const parsed = lines.map((ln) => {
     const car = ln.car || {};
     const drivers = car.drivers || [];
     const d0 = drivers[0] || {};
-    const name = (d0.lastName || "").trim()
+    let name = (d0.lastName || "").trim()
       || [d0.firstName, d0.lastName].filter(Boolean).join(" ").trim()
       || d0.shortName || `#${car.raceNumber}`;
+    const rawTeam = (car.teamName || "").trim();
+    let team = rawTeam;
+    // 오프라인 커스텀 챔피언십: 게임에 입력한 전체 이름이 teamName에 들어가고
+    // lastName에는 일부만 남거나(teamName '이태희' / lastName '태희') 아예 빈 경우도 있다.
+    // teamName이 lastName으로 끝나거나 이름이 비어 있으면 teamName을 표시 이름으로 사용.
+    const hasRealName = !!((d0.lastName || "").trim() || (d0.firstName || "").trim());
+    if (team && (!hasRealName
+        || (!(d0.firstName || "").trim() && (team === name || team.endsWith(name))))) {
+      name = team; team = "";
+    }
     const timing = ln.timing || {};
     return {
       raceNumber: car.raceNumber ?? -1,
       name,
-      team: (car.teamName || "").trim(),
+      team,
+      // 오프라인 챔피언십에서 게임이 리더보드에 표시하는 이름은 teamName이다.
+      // "팀명을 드라이버 이름으로 표시" 옵션에서 사용.
+      entryName: isOffline && rawTeam ? rawTeam : null,
       cupCategory: car.cupCategory ?? 0,
       carId: car.carId ?? null,
       carModel: car.carModel ?? null,
@@ -443,10 +461,13 @@ function extractLaps(json, lines) {
     if (!line) continue;
     const t = lap.laptime ?? lap.lapTime ?? lap.time;
     if (typeof t !== "number" || t <= 0) continue;
+    // 오프라인 포맷은 flags 비트로 유효성 표시 (bit0 = 무효, 1024 = 첫 랩)
+    const valid = lap.isValidForBest ?? lap.isValid
+      ?? (typeof lap.flags === "number" ? (lap.flags & 1) === 0 : true);
     line.laps.push({
       t,
       s: Array.isArray(lap.splits) ? lap.splits : (Array.isArray(lap.sectors) ? lap.sectors : []),
-      v: lap.isValidForBest ?? lap.isValid ?? true,
+      v: valid,
     });
   }
 }
@@ -589,6 +610,7 @@ const state = {
     poleOn: false, poleBonus: 1,
     flOn: false, flBonus: 1,
     dropOn: false, dropCount: 1,
+    teamAsName: true,
     classFilter: -1, teamsOn: false,
   },
 };
@@ -843,9 +865,19 @@ function currentSettings() {
   };
 }
 
+// "팀명을 드라이버 이름으로" 옵션 적용
+function displayLine(ln) {
+  if (state.settings.teamAsName && ln.entryName) return { ...ln, name: ln.entryName, team: "" };
+  return ln;
+}
+
 function preparedRaces() {
   const qualis = seasonSessions().filter(s => s.type === "Q");
-  return includedRaces().map(r => ({ ...r, poleRaceNumber: findPoleRaceNumber(r, qualis) }));
+  return includedRaces().map(r => ({
+    ...r,
+    lines: r.lines.map(displayLine),
+    poleRaceNumber: findPoleRaceNumber(r, qualis),
+  }));
 }
 
 function renderPointsEditor() {
@@ -875,6 +907,7 @@ function renderPointsEditor() {
   document.getElementById("flBonus").value = s.flBonus;
   document.getElementById("optDrop").checked = s.dropOn;
   document.getElementById("dropCount").value = s.dropCount;
+  document.getElementById("optTeamName").checked = s.teamAsName;
 }
 
 function renderSeasonSelect() {
@@ -908,12 +941,13 @@ function renderRounds() {
     const inc = state.included[id] !== false;
     if (inc) roundNo++;
     const date = r.time ? new Date(r.time).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "";
-    const winner = r.lines[0];
+    const shownLines = r.lines.map(displayLine);
+    const winner = shownLines[0];
     const pIdx = preparedIds.indexOf(id);
     const res = pIdx >= 0 ? roundResults[pIdx] : null;
 
-    const leader = r.lines[0];
-    const detailRows = r.lines.map((ln, li) => {
+    const leader = shownLines[0];
+    const detailRows = shownLines.map((ln, li) => {
       const dr = res && res.get(ln.raceNumber);
       const marks = dr ? `${dr.pole ? '<span class="bonus-mark p">P</span>' : ""}${dr.fl ? '<span class="bonus-mark f">FL</span>' : ""}` : "";
       const hasLaps = Array.isArray(ln.laps) && ln.laps.length > 0;
@@ -1157,6 +1191,7 @@ function bind() {
   opt("optPole", "poleOn"); opt("poleBonus", "poleBonus", true);
   opt("optFL", "flOn"); opt("flBonus", "flBonus", true);
   opt("optDrop", "dropOn"); opt("dropCount", "dropCount", true);
+  opt("optTeamName", "teamAsName");
 
   document.getElementById("btnWatch").addEventListener("click", onWatchClick);
   document.getElementById("btnWatchStop").addEventListener("click", stopWatch);

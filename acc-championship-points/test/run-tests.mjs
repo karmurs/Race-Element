@@ -33,13 +33,24 @@ test("UTF-16 LE 파일 디코딩 후 한글 이름이 깨지지 않는다", () =
 
 // ---------- 2. 세션 파싱 ----------
 const race = core.parseSession(raceText, "Race.json", Date.parse("2026-06-10T21:00:00"));
-test("sessionType 10 → 레이스(R)로 판별", () => {
+test("sessionType 10 → 레이스(R)로 판별 (실제 파일엔 트랙 정보 없음)", () => {
   assert.equal(race.type, "R");
-  assert.equal(core.prettyTrack(race.trackRaw), "Monza");
+  assert.equal(core.prettyTrack(race.trackRaw), "(알 수 없는 트랙)");
 });
 test("leaderBoardLines 배열 순서 = 완주 순위", () => {
-  assert.deepEqual(race.lines.map(l => l.raceNumber), [20, 30, 4, 7]);
-  assert.deepEqual(race.lines.map(l => l.name), ["이태희", "장혁", "쏭", "김민수"]);
+  assert.deepEqual(race.lines.map(l => l.raceNumber), [20, 30, 4, 7, 63]);
+  assert.deepEqual(race.lines.map(l => l.name), ["이태희", "장혁", "쏭", "김민수", "Bortolotti"]);
+});
+test("이름 병합: teamName의 전체 이름 사용, AI는 팀명 유지", () => {
+  // 플레이어: teamName '이태희' / lastName '태희' → 표시 이름 '이태희', 팀은 비움
+  assert.equal(race.lines[0].name, "이태희");
+  assert.equal(race.lines[0].team, "");
+  // AI: teamName이 실제 팀명이면 그대로 유지
+  assert.equal(race.lines[4].name, "Bortolotti");
+  assert.equal(race.lines[4].team, "GRT Grasser Racing Team");
+  // "팀명을 드라이버 이름으로 표시" 옵션용 원본 teamName 보존 (오프라인 포맷)
+  assert.equal(race.lines[0].entryName, "이태희");
+  assert.equal(race.lines[4].entryName, "GRT Grasser Racing Team");
 });
 
 const qualiBuf = readFileSync(join(root, "samples", "Qualifying.json"));
@@ -55,7 +66,8 @@ test("기본 포인트(12-10-8-…) 적용: 이태희 12, 장혁 10, 쏭 8", () 
   assert.equal(by["이태희"], 12);
   assert.equal(by["장혁"], 10);
   assert.equal(by["쏭"], 8);
-  assert.equal(by["김민수"], 7); // 4위
+  assert.equal(by["김민수"], 7);    // 4위
+  assert.equal(by["Bortolotti"], 6); // 5위
   assert.equal(standings[0].name, "이태희");
 });
 
@@ -164,8 +176,8 @@ test("트랙 탐색: 고정 키에 없어도 파일 안의 트랙 id를 찾아�
 
 // ---------- 7. 차량 모델 / 갭 / 랩별 기록 ----------
 test("차량 모델 매핑: carModel → 차량 이름", () => {
-  assert.equal(race.lines[0].carModel, 35);
-  assert.equal(core.carName(35), "McLaren 720S GT3 Evo");
+  assert.equal(race.lines[0].carModel, 16);
+  assert.equal(core.carName(16), "Lamborghini Huracán GT3 Evo");
   assert.equal(core.carName(32), "Ferrari 296 GT3");
   assert.equal(core.carName(null), "—");
   assert.equal(core.carName(999), "Car #999");
@@ -178,14 +190,16 @@ test("1위와의 격차: 같은 랩=시간차, 랩 부족=+N랩", () => {
   assert.equal(core.formatGap(p1, p4), "+10랩");       // 14랩 vs 4랩
 });
 
-test("랩별 기록: laps 배열을 carId로 드라이버에 연결", () => {
+test("랩별 기록: lapTime/flags 포맷을 carId로 드라이버에 연결", () => {
   const lee = race.lines.find(l => l.raceNumber === 20);
   assert.equal(lee.laps.length, 4);
   assert.equal(lee.laps[3].t, 108123);          // 베스트랩
   assert.deepEqual(lee.laps[3].s, [36000, 40123, 32000]); // 섹터
-  assert.equal(lee.laps[2].v, false);           // 무효랩
+  assert.equal(lee.laps[0].v, true);            // flags 1024(첫 랩) = 유효
+  assert.equal(lee.laps[2].v, false);           // flags 1 = 무효
   const kim = race.lines.find(l => l.raceNumber === 7);
   assert.equal(kim.laps.length, 1);
+  assert.equal(kim.laps[0].v, false);           // flags 1025 = 무효
 });
 
 console.log(`\n${passed}개 테스트 모두 통과 ✅`);
