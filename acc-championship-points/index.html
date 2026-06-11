@@ -181,6 +181,7 @@
       <div id="dropzone">
         <div><strong>ACC 결과 JSON 파일을 여기로 드래그</strong>하거나 클릭해서 선택하세요</div>
         <div class="hint">위치: 문서\Assetto Corsa Competizione\Results &nbsp;·&nbsp; 폴더째 끌어다 놓아도 됩니다 (UTF-16 자동 처리)</div>
+        <div class="hint" style="color:var(--accent2)">⚠ ACC는 매 레이스 후 Race.json을 덮어쓰므로, 각 라운드가 끝날 때마다 불러와 주세요. 한번 불러온 결과는 앱이 계속 기억합니다.</div>
       </div>
       <div class="file-actions">
         <button id="btnPickFiles" class="primary">파일 선택…</button>
@@ -216,16 +217,23 @@
 
   <!-- 3. 라운드 -->
   <section>
-    <h2>&#127950;&#65039; 라운드 (레이스 세션)
+    <h2>&#127950;&#65039; 라운드
       <span class="spacer"></span>
-      <span class="sub" id="qualiInfo" style="font-weight:400;font-size:12px;color:var(--muted)"></span>
+      <select id="seasonSelect" title="챔피언십 선택"></select>
+      <button id="btnSeasonNew" class="mini">+ 새 챔피언십</button>
+      <button id="btnSeasonRename" class="mini">이름 변경</button>
+      <button id="btnSeasonDel" class="mini danger">삭제</button>
     </h2>
-    <div class="body" id="roundsBody"></div>
+    <div class="body">
+      <div id="qualiInfo" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
+      <div id="roundsBody"></div>
+    </div>
   </section>
 
   <!-- 4. 순위표 -->
   <section>
     <h2>&#127942; 챔피언십 순위표
+      <span id="standingsSeason" style="font-weight:400;font-size:12px;color:var(--accent2)"></span>
       <span class="spacer"></span>
       <select id="classFilter">
         <option value="-1">전체 클래스</option>
@@ -535,9 +543,12 @@ function formatTotalTime(ms) {
 const STORE_KEY = "accChampPoints.v1";
 
 const state = {
-  sessions: [],          // parseSession 결과 + id
+  sessions: [],          // parseSession 결과 + id (+ season)
   order: [],             // 레이스 세션 id의 라운드 순서
   included: {},          // id → bool
+  names: {},             // id → 수동 트랙/라운드 이름
+  seasons: [{ id: "s1", name: "챔피언십 1" }],
+  currentSeason: "s1",
   settings: {
     points: [...DEFAULT_POINTS],
     poleOn: false, poleBonus: 1,
@@ -559,20 +570,38 @@ function load() {
     if (Array.isArray(s.sessions)) state.sessions = s.sessions;
     if (Array.isArray(s.order)) state.order = s.order;
     if (s.included) state.included = s.included;
+    if (s.names) state.names = s.names;
+    if (Array.isArray(s.seasons) && s.seasons.length) state.seasons = s.seasons;
+    if (s.currentSeason) state.currentSeason = s.currentSeason;
     if (s.settings) Object.assign(state.settings, s.settings);
   } catch {}
+  // 마이그레이션: 시즌 정보가 없는 기존 데이터는 첫 챔피언십에 귀속
+  if (!state.seasons.some(x => x.id === state.currentSeason)) state.currentSeason = state.seasons[0].id;
+  for (const sess of state.sessions) if (!sess.season) sess.season = state.seasons[0].id;
 }
 
-function sessionId(sess) { return `${sess.fileName}|${sess.time}`; }
+// 같은 결과 파일을 서로 다른 챔피언십에 따로 넣을 수 있도록 id에 시즌을 포함
+function sessionId(sess) { return `${sess.season || ""}|${sess.fileName}|${sess.time}`; }
+
+function seasonSessions() {
+  return state.sessions.filter(s => s.season === state.currentSeason);
+}
+
+function displayTrack(sess) {
+  return state.names[sessionId(sess)] || prettyTrack(sess.trackRaw);
+}
 
 function raceSessions() {
-  const byId = new Map(state.sessions.filter(s => s.type === "R").map(s => [sessionId(s), s]));
-  // order에 없는 새 레이스는 시간순으로 뒤에 붙인다
-  const known = state.order.filter(id => byId.has(id));
-  const rest = [...byId.keys()].filter(id => !known.includes(id))
-    .sort((a, b) => (byId.get(a).time || 0) - (byId.get(b).time || 0));
-  state.order = [...known, ...rest];
-  return state.order.map(id => byId.get(id));
+  const byId = new Map(seasonSessions().filter(s => s.type === "R").map(s => [sessionId(s), s]));
+  // 전체 순서 목록 정리: 사라진 id 제거, 새 레이스는 시간순으로 뒤에 추가
+  const allIds = new Set(state.sessions.filter(s => s.type === "R").map(sessionId));
+  state.order = state.order.filter(id => allIds.has(id));
+  const missing = state.sessions
+    .filter(s => s.type === "R" && !state.order.includes(sessionId(s)))
+    .sort((a, b) => (a.time || 0) - (b.time || 0)).map(sessionId);
+  state.order.push(...missing);
+  // 현재 챔피언십 소속 레이스만, 전체 순서를 따라 반환
+  return state.order.filter(id => byId.has(id)).map(id => byId.get(id));
 }
 
 function includedRaces() {
@@ -590,15 +619,17 @@ async function addFiles(files) {
       const buf = await f.arrayBuffer();
       const sess = parseSession(decodeResultBuffer(buf), f.name, f.lastModified);
       if (!sess) { skipped++; continue; }
+      sess.season = state.currentSeason;
       const id = sessionId(sess);
       const existing = state.sessions.findIndex(s => sessionId(s) === id);
       if (existing >= 0) state.sessions[existing] = sess; else state.sessions.push(sess);
       ok++;
     } catch { skipped++; }
   }
-  const races = state.sessions.filter(s => s.type === "R").length;
+  const races = seasonSessions().filter(s => s.type === "R").length;
+  const seasonName = (state.seasons.find(s => s.id === state.currentSeason) || {}).name || "";
   document.getElementById("loadStatus").textContent =
-    `${ok}개 읽음${skipped ? `, ${skipped}개 건너뜀` : ""} · 레이스 ${races}개 / 전체 세션 ${state.sessions.length}개`;
+    `${ok}개 읽음${skipped ? `, ${skipped}개 건너뜀` : ""} → "${seasonName}"에 추가 · 이 챔피언십 레이스 ${races}개`;
   save(); renderAll();
 }
 
@@ -659,7 +690,7 @@ function currentSettings() {
 }
 
 function preparedRaces() {
-  const qualis = state.sessions.filter(s => s.type === "Q");
+  const qualis = seasonSessions().filter(s => s.type === "Q");
   return includedRaces().map(r => ({ ...r, poleRaceNumber: findPoleRaceNumber(r, qualis) }));
 }
 
@@ -692,15 +723,23 @@ function renderPointsEditor() {
   document.getElementById("dropCount").value = s.dropCount;
 }
 
+function renderSeasonSelect() {
+  const sel = document.getElementById("seasonSelect");
+  sel.innerHTML = state.seasons.map(s =>
+    `<option value="${esc(s.id)}" ${s.id === state.currentSeason ? "selected" : ""}>${esc(s.name)}</option>`).join("");
+}
+
 function renderRounds() {
+  renderSeasonSelect();
   const body = document.getElementById("roundsBody");
   const races = raceSessions();
-  const qualis = state.sessions.filter(s => s.type === "Q").length;
+  const qualis = seasonSessions().filter(s => s.type === "Q").length;
   document.getElementById("qualiInfo").textContent =
     qualis ? `퀄리파잉 ${qualis}개 인식됨 — 폴 보너스 매칭에 사용` : "";
 
   if (!races.length) {
-    body.innerHTML = `<div class="empty-note">아직 불러온 레이스가 없습니다. 위에서 결과 파일을 불러오세요.</div>`;
+    body.innerHTML = `<div class="empty-note">이 챔피언십에 불러온 레이스가 없습니다. 위에서 결과 파일을 불러오세요.<br>
+      <small>참고: ACC는 매 레이스 후 Race.json을 덮어쓰므로, 각 라운드가 끝날 때마다 불러와 주세요. 앱이 누적 저장합니다.</small></div>`;
     return;
   }
 
@@ -741,12 +780,18 @@ function renderRounds() {
       </tr>${lapRow}`;
     }).join("");
 
+    const moveSel = state.seasons.length > 1
+      ? `<select class="mini" data-act="move" data-id="${esc(id)}" title="다른 챔피언십으로 이동">${
+          state.seasons.map(s => `<option value="${esc(s.id)}" ${s.id === r.season ? "selected" : ""}>${esc(s.name)}</option>`).join("")
+        }</select>` : "";
     return `<div class="round-card ${inc ? "" : "excluded"}">
       <div class="round-head">
         <span class="round-no">${inc ? "R" + roundNo : "제외"}</span>
-        <span class="round-title">${esc(prettyTrack(r.trackRaw))}</span>
+        <span class="round-title">${esc(displayTrack(r))}</span>
+        <button class="mini" data-act="rename" data-id="${esc(id)}" title="트랙/라운드 이름 입력">✏️</button>
         <span class="round-meta">${esc(date)} · ${esc(r.fileName)} · 우승 #${winner.raceNumber} ${esc(winner.name)}</span>
         <span class="grow"></span>
+        ${moveSel}
         <button class="mini" data-act="up" data-id="${esc(id)}" ${i === 0 ? "disabled" : ""}>▲</button>
         <button class="mini" data-act="down" data-id="${esc(id)}" ${i === races.length - 1 ? "disabled" : ""}>▼</button>
         <label style="font-size:12px;display:flex;gap:5px;align-items:center">
@@ -776,16 +821,49 @@ function renderRounds() {
     }
     if (el.dataset.act === "inc") {
       el.addEventListener("change", () => { state.included[id] = el.checked; save(); renderAll(); });
+    } else if (el.dataset.act === "move") {
+      el.addEventListener("change", () => {
+        const sess = state.sessions.find(s => sessionId(s) === id);
+        if (sess && sess.season !== el.value) {
+          const probe = { ...sess, season: el.value };
+          if (state.sessions.some(o => o !== sess && sessionId(o) === sessionId(probe))) {
+            alert("대상 챔피언십에 같은 결과가 이미 있습니다.");
+          } else {
+            // 시즌이 바뀌면 id도 바뀌므로 포함/이름/순서 정보를 같이 옮긴다
+            const inc = state.included[id], nm = state.names[id];
+            const oi = state.order.indexOf(id);
+            delete state.included[id]; delete state.names[id];
+            sess.season = el.value;
+            const nid = sessionId(sess);
+            if (inc !== undefined) state.included[nid] = inc;
+            if (nm !== undefined) state.names[nid] = nm;
+            if (oi >= 0) state.order[oi] = nid;
+          }
+        }
+        save(); renderAll();
+      });
     } else {
       el.addEventListener("click", () => {
         if (el.dataset.act === "del") {
           state.sessions = state.sessions.filter(s => sessionId(s) !== id);
           state.order = state.order.filter(o => o !== id);
+          delete state.names[id];
+        } else if (el.dataset.act === "rename") {
+          const sess = state.sessions.find(s => sessionId(s) === id);
+          const cur = state.names[id] || (sess ? prettyTrack(sess.trackRaw) : "");
+          const v = prompt("트랙/라운드 이름을 입력하세요 (비우면 자동 이름)", cur);
+          if (v === null) return;
+          if (v.trim()) state.names[id] = v.trim(); else delete state.names[id];
         } else {
-          const i = state.order.indexOf(id);
-          const j = el.dataset.act === "up" ? i - 1 : i + 1;
-          if (i >= 0 && j >= 0 && j < state.order.length) {
-            [state.order[i], state.order[j]] = [state.order[j], state.order[i]];
+          // 현재 챔피언십 안에서의 이웃과 위치를 바꾼다 (전체 순서 목록 기준 이동)
+          const visible = raceSessions().map(sessionId);
+          const vi = visible.indexOf(id);
+          const vj = el.dataset.act === "up" ? vi - 1 : vi + 1;
+          if (vi >= 0 && vj >= 0 && vj < visible.length) {
+            const other = visible[vj];
+            state.order.splice(state.order.indexOf(id), 1);
+            const k = state.order.indexOf(other) + (el.dataset.act === "down" ? 1 : 0);
+            state.order.splice(k, 0, id);
           }
         }
         save(); renderAll();
@@ -796,6 +874,8 @@ function renderRounds() {
 
 function renderStandings() {
   const body = document.getElementById("standingsBody");
+  const cur = state.seasons.find(s => s.id === state.currentSeason);
+  document.getElementById("standingsSeason").textContent = cur ? `— ${cur.name}` : "";
   const races = preparedRaces();
   if (!races.length) {
     body.innerHTML = `<div class="empty-note">포함된 라운드가 없습니다.</div>`;
@@ -806,7 +886,7 @@ function renderStandings() {
   const cf = state.settings.classFilter;
   const rows = standings.filter(e => cf < 0 || e.cupCategory === cf);
 
-  const roundHead = races.map((_, i) => `<th>R${i + 1}</th>`).join("");
+  const roundHead = races.map((r, i) => `<th title="${esc(displayTrack(r))}">R${i + 1}</th>`).join("");
   const bonusCols = (settings.poleBonus ? "<th>폴</th>" : "") + (settings.flBonus ? "<th>FL</th>" : "");
 
   const trs = rows.map((e, i) => {
@@ -869,7 +949,8 @@ function exportCsv() {
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "championship_standings.csv";
+  const cur = state.seasons.find(x => x.id === state.currentSeason);
+  a.download = `${(cur ? cur.name : "championship").replace(/[\\/:*?"<>|]/g, "_")}_순위표.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -895,8 +976,8 @@ function bind() {
   folderInput.addEventListener("change", () => { addFiles([...folderInput.files]); folderInput.value = ""; });
 
   document.getElementById("btnClear").addEventListener("click", () => {
-    if (!state.sessions.length || confirm("불러온 모든 결과를 지울까요? (포인트 설정은 유지됩니다)")) {
-      state.sessions = []; state.order = []; state.included = {};
+    if (!state.sessions.length || confirm("불러온 모든 결과를 지울까요? (모든 챔피언십 데이터 삭제, 포인트 설정은 유지)")) {
+      state.sessions = []; state.order = []; state.included = {}; state.names = {};
       document.getElementById("loadStatus").textContent = "";
       save(); renderAll();
     }
@@ -922,6 +1003,34 @@ function bind() {
   opt("optPole", "poleOn"); opt("poleBonus", "poleBonus", true);
   opt("optFL", "flOn"); opt("flBonus", "flBonus", true);
   opt("optDrop", "dropOn"); opt("dropCount", "dropCount", true);
+
+  document.getElementById("seasonSelect").addEventListener("change", e => {
+    state.currentSeason = e.target.value; save(); renderAll();
+  });
+  document.getElementById("btnSeasonNew").addEventListener("click", () => {
+    const name = prompt("새 챔피언십 이름", `챔피언십 ${state.seasons.length + 1}`);
+    if (!name || !name.trim()) return;
+    const id = "s" + Date.now();
+    state.seasons.push({ id, name: name.trim() });
+    state.currentSeason = id;
+    save(); renderAll();
+  });
+  document.getElementById("btnSeasonRename").addEventListener("click", () => {
+    const cur = state.seasons.find(s => s.id === state.currentSeason);
+    if (!cur) return;
+    const name = prompt("챔피언십 이름 변경", cur.name);
+    if (name && name.trim()) { cur.name = name.trim(); save(); renderAll(); }
+  });
+  document.getElementById("btnSeasonDel").addEventListener("click", () => {
+    if (state.seasons.length <= 1) { alert("마지막 챔피언십은 삭제할 수 없습니다."); return; }
+    const cur = state.seasons.find(s => s.id === state.currentSeason);
+    const cnt = seasonSessions().length;
+    if (!confirm(`"${cur.name}"${cnt ? `와 포함된 세션 ${cnt}개` : ""}를 삭제할까요?`)) return;
+    state.sessions = state.sessions.filter(s => s.season !== state.currentSeason);
+    state.seasons = state.seasons.filter(s => s.id !== state.currentSeason);
+    state.currentSeason = state.seasons[0].id;
+    save(); renderAll();
+  });
 
   document.getElementById("classFilter").addEventListener("change", e => {
     s.classFilter = +e.target.value; save(); renderStandings();
