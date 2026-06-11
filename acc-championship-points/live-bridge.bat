@@ -1,9 +1,11 @@
 @echo off
 rem ============================================================
-rem ACC 라이브 브리지 실행기 — 더블클릭으로 실행하세요.
-rem 게임보다 먼저 켜도, 나중에 켜도 알아서 연결됩니다.
-rem (윈도우 시작 시 자동 실행: Win+R → shell:startup →
-rem  열린 폴더에 이 파일의 바로가기를 넣으세요)
+rem ACC Live Bridge launcher - just double-click this file.
+rem It is fine to start this before or after the game.
+rem Auto-start on boot: Win+R -> shell:startup -> put a
+rem shortcut to this file in the folder that opens.
+rem (ASCII only: cmd reads .bat files in the OEM codepage,
+rem  so Korean text here would break on Korean Windows.)
 rem ============================================================
 chcp 65001 >nul
 cd /d "%~dp0"
@@ -14,5 +16,5 @@ if %errorlevel%==0 (
     py -3 live-bridge.py %*
 )
 echo.
-echo 브리지가 종료되었습니다. 아무 키나 누르면 창이 닫힙니다.
+echo Bridge stopped. Press any key to close this window.
 pause >nul
