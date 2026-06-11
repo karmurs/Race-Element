@@ -145,6 +145,22 @@
   .bonus-mark.p { color: var(--accent2); }
   .bonus-mark.f { color: #b388ff; }
   .empty-note { color: var(--muted); text-align: center; padding: 26px 0; font-size: 13px; }
+
+  /* ---------- 랩별 기록 ---------- */
+  .lap-btn { margin-left: 6px; }
+  .laps-row td { background: #11151d; text-align: left; }
+  tr.laps-row:hover td { background: #11151d; }
+  .lap-grid { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 2px; }
+  .lap-item {
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 9px;
+    font-size: 12px; display: flex; gap: 7px; align-items: baseline; background: var(--panel2);
+  }
+  .lap-item .lap-no { color: var(--muted); font-size: 10px; }
+  .lap-item small { color: var(--muted); font-size: 10px; }
+  .lap-item.lap-best { border-color: var(--green); }
+  .lap-item.lap-best b { color: var(--green); }
+  .lap-item.lap-invalid b { color: var(--muted); text-decoration: line-through; }
+  .lap-item .x { color: #f85149; }
   .team-cell { color: var(--muted); font-size: 12px; }
 
   h3.sub-title { font-size: 14px; margin: 22px 0 8px; color: var(--muted); letter-spacing: 1px; }
@@ -297,6 +313,32 @@ function prettyTrack(raw) {
   return TRACK_NAMES[key] || raw;
 }
 
+const CAR_MODELS = {
+  0: "Porsche 991 GT3 R", 1: "Mercedes-AMG GT3", 2: "Ferrari 488 GT3", 3: "Audi R8 LMS",
+  4: "Lamborghini Huracán GT3", 5: "McLaren 650S GT3", 6: "Nissan GT-R Nismo GT3 2018",
+  7: "BMW M6 GT3", 8: "Bentley Continental GT3 2018", 9: "Porsche 991 II GT3 Cup",
+  10: "Nissan GT-R Nismo GT3 2015", 11: "Bentley Continental GT3 2015",
+  12: "AMR V12 Vantage GT3", 13: "Reiter R-EX GT3", 14: "Emil Frey Jaguar G3",
+  15: "Lexus RC F GT3", 16: "Lamborghini Huracán GT3 Evo", 17: "Honda NSX GT3",
+  18: "Lamborghini Huracán SuperTrofeo", 19: "Audi R8 LMS Evo", 20: "AMR V8 Vantage GT3",
+  21: "Honda NSX GT3 Evo", 22: "McLaren 720S GT3", 23: "Porsche 911 II GT3 R",
+  24: "Ferrari 488 GT3 Evo", 25: "Mercedes-AMG GT3 2020", 26: "Ferrari 488 Challenge Evo",
+  27: "BMW M2 CS Racing", 28: "Porsche 992 GT3 Cup", 29: "Lamborghini Huracán ST EVO2",
+  30: "BMW M4 GT3", 31: "Audi R8 LMS GT3 Evo II", 32: "Ferrari 296 GT3",
+  33: "Lamborghini Huracán GT3 Evo 2", 34: "Porsche 992 GT3 R", 35: "McLaren 720S GT3 Evo",
+  36: "Ford Mustang GT3",
+  50: "Alpine A110 GT4", 51: "Aston Martin Vantage GT4", 52: "Audi R8 LMS GT4",
+  53: "BMW M4 GT4", 55: "Chevrolet Camaro GT4", 56: "Ginetta G55 GT4", 57: "KTM X-Bow GT4",
+  58: "Maserati MC GT4", 59: "McLaren 570S GT4", 60: "Mercedes-AMG GT4", 61: "Porsche 718 Cayman GT4",
+  80: "Audi R8 LMS GT2", 82: "KTM X-Bow GT2", 83: "Maserati MC20 GT2", 84: "Mercedes-AMG GT2",
+  85: "Porsche 911 GT2 RS CS Evo", 86: "Porsche 935",
+};
+
+function carName(id) {
+  if (id === null || id === undefined) return "—";
+  return CAR_MODELS[id] || `Car #${id}`;
+}
+
 // 결과 JSON 텍스트 → 세션 객체. 리더보드가 없으면 null.
 function parseSession(text, fileName, fileTime) {
   let json;
@@ -328,11 +370,15 @@ function parseSession(text, fileName, fileTime) {
       name,
       team: (car.teamName || "").trim(),
       cupCategory: car.cupCategory ?? 0,
+      carId: car.carId ?? null,
+      carModel: car.carModel ?? null,
       lapCount: timing.lapCount ?? 0,
       bestLap: timing.bestLap ?? 0,
       totalTime: timing.totalTime ?? 0,
+      laps: [],
     };
   });
+  extractLaps(json, parsed);
 
   return {
     fileName: fileName || "",
@@ -341,6 +387,38 @@ function parseSession(text, fileName, fileTime) {
     type: detectSessionType(json),
     lines: parsed,
   };
+}
+
+// 최상위 laps 배열(매 랩 기록)을 carId로 드라이버에 연결한다.
+// carId는 세션 안에서만 유효하므로 같은 세션의 leaderBoardLines와만 매칭.
+function extractLaps(json, lines) {
+  const arr = json.laps;
+  if (!Array.isArray(arr) || !arr.length) return;
+  const byCarId = new Map(lines.filter(l => l.carId !== null).map(l => [l.carId, l]));
+  for (const lap of arr) {
+    if (!lap || typeof lap !== "object") continue;
+    const line = byCarId.get(lap.carId ?? lap.carIndex);
+    if (!line) continue;
+    const t = lap.laptime ?? lap.lapTime ?? lap.time;
+    if (typeof t !== "number" || t <= 0) continue;
+    line.laps.push({
+      t,
+      s: Array.isArray(lap.splits) ? lap.splits : (Array.isArray(lap.sectors) ? lap.sectors : []),
+      v: lap.isValidForBest ?? lap.isValid ?? true,
+    });
+  }
+}
+
+// 1위와의 격차: 랩 다운이면 "+N랩", 같은 랩이면 시간 차
+function formatGap(leader, ln) {
+  if (!leader || ln === leader) return "—";
+  if ((ln.lapCount || 0) < (leader.lapCount || 0)) return `+${leader.lapCount - ln.lapCount}랩`;
+  if (!ln.totalTime || !leader.totalTime || ln.totalTime <= 0 || leader.totalTime <= 0
+      || ln.totalTime >= INVALID_LAP || leader.totalTime >= INVALID_LAP) return "—";
+  const d = ln.totalTime - leader.totalTime;
+  if (d < 0) return "—";
+  if (d < 60000) return `+${(d / 1000).toFixed(3)}`;
+  return `+${formatLapTime(d)}`;
 }
 
 // 같은 트랙에서 레이스보다 먼저 끝난 가장 가까운 퀄리파잉의 1위 → 폴
@@ -557,6 +635,19 @@ function esc(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+function lapListHtml(laps) {
+  const valid = laps.filter(l => l.v && l.t > 0 && l.t < INVALID_LAP);
+  const best = valid.length ? Math.min(...valid.map(l => l.t)) : null;
+  const items = laps.map((l, i) => {
+    const cls = !l.v ? "lap-invalid" : (best !== null && l.t === best ? "lap-best" : "");
+    const splits = (l.s || []).filter(x => typeof x === "number" && x > 0 && x < INVALID_LAP)
+      .map(x => (x / 1000).toFixed(3)).join(" · ");
+    return `<div class="lap-item ${cls}"><span class="lap-no">L${i + 1}</span><b>${formatLapTime(l.t)}</b>` +
+      (splits ? `<small>${splits}</small>` : "") + (!l.v ? '<small class="x">무효</small>' : "") + `</div>`;
+  }).join("");
+  return `<div class="lap-grid">${items}</div>`;
+}
+
 function currentSettings() {
   const s = state.settings;
   return {
@@ -628,18 +719,26 @@ function renderRounds() {
     const pIdx = preparedIds.indexOf(id);
     const res = pIdx >= 0 ? roundResults[pIdx] : null;
 
+    const leader = r.lines[0];
     const detailRows = r.lines.map((ln, li) => {
       const dr = res && res.get(ln.raceNumber);
       const marks = dr ? `${dr.pole ? '<span class="bonus-mark p">P</span>' : ""}${dr.fl ? '<span class="bonus-mark f">FL</span>' : ""}` : "";
+      const hasLaps = Array.isArray(ln.laps) && ln.laps.length > 0;
+      const lapBtn = hasLaps
+        ? `<button class="mini lap-btn" data-act="laps" title="랩별 기록 보기">랩 ▾</button>` : "";
+      const lapRow = hasLaps
+        ? `<tr class="laps-row" hidden><td colspan="9">${lapListHtml(ln.laps)}</td></tr>` : "";
       return `<tr class="pos-${li + 1}">
         <td>${li + 1}</td>
         <td class="l"><span class="race-num">#${ln.raceNumber}</span>${esc(ln.name)}${marks}</td>
+        <td class="l team-cell">${esc(carName(ln.carModel))}</td>
         <td class="l team-cell">${esc(ln.team || "—")}</td>
         <td>${ln.lapCount}</td>
         <td>${formatLapTime(ln.bestLap)}</td>
+        <td>${li === 0 ? "—" : esc(formatGap(leader, ln))}</td>
         <td>${formatTotalTime(ln.totalTime)}</td>
-        <td class="total">${dr ? dr.points : "—"}</td>
-      </tr>`;
+        <td class="total">${dr ? dr.points : "—"} ${lapBtn}</td>
+      </tr>${lapRow}`;
     }).join("");
 
     return `<div class="round-card ${inc ? "" : "excluded"}">
@@ -658,7 +757,7 @@ function renderRounds() {
       <details class="round-detail">
         <summary>레이스 결과 보기 (${r.lines.length}명)</summary>
         <div class="tbl-wrap"><table>
-          <thead><tr><th>순위</th><th class="l">드라이버</th><th class="l">팀</th><th>랩</th><th>베스트 랩</th><th>총 시간</th><th>포인트</th></tr></thead>
+          <thead><tr><th>순위</th><th class="l">드라이버</th><th class="l">차량</th><th class="l">팀</th><th>랩</th><th>베스트 랩</th><th>갭</th><th>총 시간</th><th>포인트</th></tr></thead>
           <tbody>${detailRows}</tbody>
         </table></div>
       </details>
@@ -667,6 +766,14 @@ function renderRounds() {
 
   body.querySelectorAll("[data-act]").forEach(el => {
     const id = el.dataset.id;
+    if (el.dataset.act === "laps") {
+      el.addEventListener("click", e => {
+        e.preventDefault();
+        const next = el.closest("tr").nextElementSibling;
+        if (next && next.classList.contains("laps-row")) next.hidden = !next.hidden;
+      });
+      return;
+    }
     if (el.dataset.act === "inc") {
       el.addEventListener("change", () => { state.included[id] = el.checked; save(); renderAll(); });
     } else {

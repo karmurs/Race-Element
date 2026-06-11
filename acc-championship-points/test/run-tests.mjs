@@ -13,7 +13,7 @@ assert.ok(m, "index.html에서 __CORE__ 구간을 찾지 못했습니다");
 const core = new Function(`${m[1]}; return {
   DEFAULT_POINTS, PRESETS, decodeResultBuffer, detectSessionType, getTrackName,
   prettyTrack, parseSession, findPoleRaceNumber, findFastestLapRaceNumber,
-  computeChampionship, formatLapTime, formatTotalTime };`)();
+  computeChampionship, formatLapTime, formatTotalTime, formatGap, carName };`)();
 
 let passed = 0;
 function test(name, fn) {
@@ -139,6 +139,32 @@ test("서버 결과 포맷(sessionResult.leaderBoardLines) 호환", () => {
 test("랩타임 포맷", () => {
   assert.equal(core.formatLapTime(108123), "1:48.123");
   assert.equal(core.formatLapTime(2147483647), "—");
+});
+
+// ---------- 7. 차량 모델 / 갭 / 랩별 기록 ----------
+test("차량 모델 매핑: carModel → 차량 이름", () => {
+  assert.equal(race.lines[0].carModel, 35);
+  assert.equal(core.carName(35), "McLaren 720S GT3 Evo");
+  assert.equal(core.carName(32), "Ferrari 296 GT3");
+  assert.equal(core.carName(null), "—");
+  assert.equal(core.carName(999), "Car #999");
+});
+
+test("1위와의 격차: 같은 랩=시간차, 랩 부족=+N랩", () => {
+  const [p1, p2, , p4] = race.lines;
+  assert.equal(core.formatGap(p1, p1), "—");
+  assert.equal(core.formatGap(p1, p2), "+2.222");      // 1803456 - 1801234
+  assert.equal(core.formatGap(p1, p4), "+10랩");       // 14랩 vs 4랩
+});
+
+test("랩별 기록: laps 배열을 carId로 드라이버에 연결", () => {
+  const lee = race.lines.find(l => l.raceNumber === 20);
+  assert.equal(lee.laps.length, 4);
+  assert.equal(lee.laps[3].t, 108123);          // 베스트랩
+  assert.deepEqual(lee.laps[3].s, [36000, 40123, 32000]); // 섹터
+  assert.equal(lee.laps[2].v, false);           // 무효랩
+  const kim = race.lines.find(l => l.raceNumber === 7);
+  assert.equal(kim.laps.length, 1);
 });
 
 console.log(`\n${passed}개 테스트 모두 통과 ✅`);
