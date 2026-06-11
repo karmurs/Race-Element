@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ACC 커스텀 챔피언십 포인트</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,600;1,700&family=Noto+Sans+KR:wght@400;500;700&display=swap');
+  :root {
+    --bg: #0a0c11;
+    --panel: #12151d;
+    --panel2: #191e29;
+    --border: #272e3d;
+    --text: #eef1f6;
+    --muted: #8a93a5;
+    --accent: #e10600;
+    --accent-hi: #ff3b30;
+    --accent2: #ffcc00;
+    --gold: #ffd34d;
+    --silver: #ccd3de;
+    --bronze: #e09b5f;
+    --green: #37d67a;
+    --disp: 'Chakra Petch', 'Noto Sans KR', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--text);
+    font-family: 'Noto Sans KR', "Malgun Gothic", "맑은 고딕", system-ui, sans-serif;
+    font-size: 14px;
+    background:
+      radial-gradient(1100px 480px at 85% -10%, rgba(225,6,0,.09), transparent 60%),
+      radial-gradient(900px 420px at -10% 4%, rgba(255,204,0,.05), transparent 55%),
+      var(--bg);
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: repeating-linear-gradient(115deg, transparent 0 46px, rgba(255,255,255,.015) 46px 92px);
+  }
+  main, header, footer { position: relative; z-index: 1; }
+
+  /* ---------- 헤더 ---------- */
+  header {
+    position: relative; overflow: hidden;
+    padding: 30px 32px 26px;
+    background: linear-gradient(100deg, #0e1118 55%, #141926);
+    border-bottom: 1px solid var(--border);
+  }
+  header::before { /* 빨간 스피드 사선 */
+    content: ""; position: absolute; top: -20%; right: -40px; width: 420px; height: 140%;
+    transform: skewX(-18deg); pointer-events: none;
+    background:
+      linear-gradient(90deg, transparent 0 56%, rgba(225,6,0,.5) 56% 60%, transparent 60% 66%,
+        rgba(225,6,0,.8) 66% 78%, rgba(140,2,0,.9) 78% 100%);
+  }
+  header::after { /* 체커 플래그 스트립 */
+    content: ""; position: absolute; left: 0; bottom: 0; width: 100%; height: 7px; opacity: .16;
+    background: repeating-conic-gradient(#fff 0% 25%, #000 0% 50%) 0 0 / 14px 7px;
+  }
+  header h1 {
+    margin: 0; font-family: var(--disp); font-style: italic; font-weight: 700;
+    font-size: 30px; letter-spacing: .5px; line-height: 1.15;
+  }
+  header h1 .red { color: var(--accent-hi); }
+  header h1 .flag { font-style: normal; margin-right: 4px; }
+  header .sub {
+    margin-top: 7px; color: var(--muted); font-size: 12px;
+    font-family: var(--disp); letter-spacing: 3px;
+  }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 22px 24px 80px; }
+
+  /* ---------- 섹션 카드 ---------- */
+  section {
+    position: relative; margin-top: 24px; overflow: hidden;
+    background: linear-gradient(180deg, var(--panel), #0d1017);
+    border: 1px solid var(--border);
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+  }
+  section::before { /* 좌측 레드 킥 */
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: linear-gradient(180deg, var(--accent), rgba(225,6,0,0) 85%);
+  }
+  section > h2 {
+    margin: 0; padding: 12px 18px 12px 20px;
+    font-family: var(--disp); font-size: 15px; font-weight: 600; letter-spacing: 1.5px;
+    background:
+      linear-gradient(100deg, rgba(225,6,0,.12), transparent 35%),
+      var(--panel2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  section > h2 .spacer { flex: 1; }
+  .body { padding: 18px; }
+
+  /* ---------- 드롭존 ---------- */
+  #dropzone {
+    position: relative;
+    border: 1px dashed #3a4356;
+    padding: 32px 16px;
+    text-align: center; color: var(--muted); cursor: pointer;
+    background: rgba(255,255,255,.012);
+    transition: border-color .15s, background .15s;
+  }
+  #dropzone::before, #dropzone::after { /* 코너 마커 */
+    content: ""; position: absolute; width: 16px; height: 16px; pointer-events: none;
+    border: 2px solid var(--accent-hi); transition: all .15s;
+  }
+  #dropzone::before { left: -1px; top: -1px; border-right: 0; border-bottom: 0; }
+  #dropzone::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
+  #dropzone.drag, #dropzone:hover { border-color: var(--accent-hi); background: rgba(225,6,0,.05); color: var(--text); }
+  #dropzone strong { color: var(--text); }
+  #dropzone .hint { font-size: 12px; margin-top: 8px; }
+  .file-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+  #loadStatus, #watchStatus { font-size: 13px; color: var(--muted); }
+  .watch-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--green); margin-right: 7px; vertical-align: baseline;
+    box-shadow: 0 0 8px var(--green);
+    animation: watchPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes watchPulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+  /* ---------- 컨트롤 ---------- */
+  button, select, input[type=number], input[type=text] {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 14px; font-size: 13px; font-family: inherit;
+  }
+  select, input[type=number], input[type=text] { border-radius: 3px; }
+  button {
+    cursor: pointer; font-family: var(--disp); font-weight: 600; letter-spacing: .5px;
+    clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+    border-radius: 0;
+    transition: background .15s, border-color .15s, color .15s, transform .1s;
+  }
+  button:hover { border-color: var(--accent-hi); background: #202635; }
+  button:active { transform: translateY(1px); }
+  button.primary {
+    background: linear-gradient(120deg, var(--accent-hi), #a50400);
+    border-color: transparent; color: #fff;
+  }
+  button.primary:hover { filter: brightness(1.15); }
+  button.danger:hover { border-color: #ff5a52; color: #ff5a52; background: rgba(225,6,0,.08); }
+  button.mini { padding: 3px 11px; font-size: 12px; }
+  input[type=number] { width: 64px; text-align: center; font-family: var(--disp); font-weight: 600; }
+  input:focus, select:focus, button:focus { outline: 1px solid var(--accent-hi); outline-offset: 1px; }
+  input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+
+  /* ---------- 포인트 설정 ---------- */
+  .points-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pt-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .pt-cell label { font-size: 11px; color: var(--muted); font-family: var(--disp); letter-spacing: 1px; }
+  .pt-cell:nth-child(1) label { color: var(--gold); font-weight: 700; }
+  .pt-cell:nth-child(2) label { color: var(--silver); font-weight: 700; }
+  .pt-cell:nth-child(3) label { color: var(--bronze); font-weight: 700; }
+  .pt-cell:nth-child(1) input { border-color: rgba(255,211,77,.45); }
+  .pt-cell:nth-child(2) input { border-color: rgba(204,211,222,.4); }
+  .pt-cell:nth-child(3) input { border-color: rgba(224,155,95,.4); }
+  .opt-row { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 16px; align-items: center; font-size: 13px; }
+  .opt-row label { display: flex; align-items: center; gap: 6px; }
+  .opt-row .dim { color: var(--muted); }
+
+  /* ---------- 라운드 카드 ---------- */
+  .round-card {
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+    background: linear-gradient(100deg, var(--panel2), #151a24 70%);
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+    transition: border-color .15s;
+  }
+  .round-card:hover { border-color: #39435a; }
+  .round-card.excluded { opacity: .42; }
+  .round-head { display: flex; align-items: center; gap: 10px; padding: 11px 14px; flex-wrap: wrap; }
+  .round-no {
+    font-family: var(--disp); font-style: italic; font-weight: 700; font-size: 14px;
+    color: #fff; background: linear-gradient(120deg, var(--accent-hi), #9d0400);
+    clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+    padding: 4px 16px; min-width: 52px; text-align: center;
+  }
+  .round-card.excluded .round-no { background: var(--border); }
+  .round-title { font-weight: 700; font-size: 15px; font-family: var(--disp); letter-spacing: .5px; }
+  .round-meta { color: var(--muted); font-size: 12px; }
+  .round-head .grow { flex: 1; }
+  details.round-detail { border-top: 1px solid var(--border); }
+  details.round-detail summary {
+    padding: 9px 14px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none;
+    font-family: var(--disp); letter-spacing: 1px;
+  }
+  details.round-detail summary:hover { color: var(--text); }
+  details.round-detail[open] summary { color: var(--accent2); }
+  .round-detail .tbl-wrap { padding: 0 14px 14px; }
+
+  /* ---------- 테이블 ---------- */
+  .tbl-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; white-space: nowrap; }
+  th, td { padding: 8px 11px; border-bottom: 1px solid rgba(39,46,61,.7); text-align: center; }
+  th {
+    color: var(--muted); font-weight: 600; font-size: 11px;
+    font-family: var(--disp); letter-spacing: 2px;
+    background: rgba(255,255,255,.025);
+    border-bottom: 1px solid var(--border);
+  }
+  td.l, th.l { text-align: left; }
+  tbody tr { transition: background .12s; }
+  tr:hover td { background: rgba(255,255,255,.03); }
+  td:first-child { font-family: var(--disp); font-weight: 700; }
+  .pos-1 td:first-child { color: var(--gold); }
+  .pos-2 td:first-child { color: var(--silver); }
+  .pos-3 td:first-child { color: var(--bronze); }
+  td.total { font-family: var(--disp); font-weight: 700; color: var(--accent2); font-size: 16px; }
+  td.dropped { color: var(--muted); text-decoration: line-through; }
+  td.zero { color: #465063; }
+  .race-num {
+    display: inline-block; min-width: 34px; margin-right: 8px; padding: 1px 6px;
+    font-family: var(--disp); font-style: italic; font-weight: 700; font-size: 11px;
+    color: #cfd6e2; background: #232a39; border: 1px solid #323b4e;
+    clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+    text-align: center;
+  }
+  .bonus-mark { font-size: 10px; vertical-align: super; font-family: var(--disp); }
+  .bonus-mark.p { color: var(--accent2); }
+  .bonus-mark.f { color: #b388ff; }
+  .empty-note { color: var(--muted); text-align: center; padding: 28px 0; font-size: 13px; line-height: 1.8; }
+  .team-cell { color: var(--muted); font-size: 12px; }
+
+  /* ---------- 순위표: 다크 행 + 포인트 바 ---------- */
+  #standingsBody tbody tr.brand-row {
+    background: linear-gradient(90deg, rgba(225,6,0,.10) var(--bar, 0%), transparent var(--bar, 0%));
+  }
+  #standingsBody tbody tr.brand-row td {
+    border-bottom: 1px solid var(--border);
+    padding-top: 9px; padding-bottom: 9px;
+  }
+  #standingsBody tbody tr.brand-row:hover td { background: rgba(255,255,255,.03); }
+  #standingsBody tr.pos-1 { box-shadow: inset 4px 0 0 var(--gold); }
+  #standingsBody tr.pos-2 { box-shadow: inset 4px 0 0 var(--silver); }
+  #standingsBody tr.pos-3 { box-shadow: inset 4px 0 0 var(--bronze); }
+  #standingsBody td.pos-cell {
+    font-family: var(--disp); font-style: italic; font-weight: 700; font-size: 18px;
+    min-width: 48px;
+  }
+  .drv-cell { min-width: 230px; }
+  .drv-names {
+    display: inline-flex; flex-direction: column; vertical-align: middle;
+    line-height: 1.2; text-align: left;
+  }
+  .drv-names b { font-size: 14px; letter-spacing: .3px; }
+  .drv-names small { font-size: 10px; color: var(--muted); font-weight: 500; }
+  .drv-names .race-num { min-width: 0; margin-right: 6px; padding: 0 5px; font-size: 9px; }
+  #standingsBody .avatar { width: 30px; height: 30px; }
+  #standingsBody .delta {
+    display: inline-block; min-width: 30px; padding: 1px 5px; border-radius: 3px;
+    background: rgba(255,255,255,.05); font-size: 10px; text-align: center;
+  }
+  /* 순위표: 로고를 고정 폭 박스에 가운데 정렬해 좌우 크기를 통일 */
+  #standingsBody .mk-box {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 64px; height: 30px; margin-right: 10px; vertical-align: middle; flex: none;
+  }
+  #standingsBody .mk-logo {
+    height: 26px; max-height: 26px; width: 60px; max-width: 60px;
+    margin: 0; padding: 2px 4px;
+  }
+  body.logo-noplate #standingsBody .mk-logo { padding: 0; }
+
+  /* ---------- 랩별 기록 ---------- */
+  .lap-btn { margin-left: 6px; }
+  .laps-row td { background: #0d1017; text-align: left; }
+  tr.laps-row:hover td { background: #0d1017; }
+  .lap-grid { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 2px; }
+  .lap-item {
+    border: 1px solid var(--border); padding: 4px 10px;
+    font-size: 12px; display: flex; gap: 8px; align-items: baseline; background: var(--panel2);
+    clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+    font-family: var(--disp);
+  }
+  .lap-item .lap-no { color: var(--muted); font-size: 10px; font-style: italic; }
+  .lap-item small { color: var(--muted); font-size: 10px; }
+  .lap-item.lap-best { border-color: var(--green); box-shadow: 0 0 8px rgba(55,214,122,.25); }
+  .lap-item.lap-best b { color: var(--green); }
+  .lap-item.lap-invalid b { color: var(--muted); text-decoration: line-through; }
+  .lap-item .x { color: #ff5a52; }
+
+  /* ---------- 메이커 칩 / 아바타 / 순위 변동 ---------- */
+  .mk-logo {
+    height: 20px; max-width: 56px; object-fit: contain;
+    background: #fff; border-radius: 3px; padding: 1px 4px;
+    margin-right: 7px; vertical-align: middle; display: inline-block;
+  }
+  body.logo-noplate .mk-logo {
+    background: transparent; border-radius: 0; padding: 0;
+    filter: drop-shadow(0 0 1px rgba(255,255,255,.95)) drop-shadow(0 0 2px rgba(255,255,255,.7))
+            drop-shadow(0 0 7px rgba(255,255,255,.35));
+  }
+  .mk {
+    display: inline-block; min-width: 36px; margin-right: 7px; padding: 1px 6px;
+    font-family: var(--disp); font-style: italic; font-weight: 700; font-size: 10px;
+    clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+    text-align: center; letter-spacing: .5px;
+  }
+  .avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%; overflow: hidden;
+    background: #232a39; border: 1px solid #323b4e; color: var(--muted);
+    font-size: 11px; font-weight: 700; margin-right: 8px; vertical-align: middle;
+    cursor: pointer; transition: border-color .15s, box-shadow .15s;
+  }
+  .avatar:hover { border-color: var(--accent-hi); box-shadow: 0 0 6px rgba(255,59,48,.4); }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .delta { font-family: var(--disp); font-weight: 700; font-size: 11px; }
+  .delta.up { color: var(--green); }
+  .delta.down { color: #ff5a52; }
+  .delta.same { color: #465063; }
+  .delta.new { color: var(--accent2); font-size: 9px; letter-spacing: 1px; }
+
+  h3.sub-title { font-size: 14px; margin: 24px 0 8px; color: var(--muted); font-family: var(--disp); letter-spacing: 2px; }
+  footer { text-align: center; color: #3f4960; font-size: 12px; padding: 32px 0; font-family: var(--disp); letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="flag">&#127937;</span> ACC <span class="red">커스텀 챔피언십</span> 포인트</h1>
+  <div class="sub">ASSETTO CORSA COMPETIZIONE &middot; CUSTOM POINTS &middot; SEASON STANDINGS</div>
+</header>
+<main>
+
+  <!-- 1. 파일 불러오기 -->
+  <section>
+    <h2>&#128193; 결과 파일 불러오기</h2>
+    <div class="body">
+      <div id="dropzone">
+        <div><strong>ACC 결과 JSON 파일을 여기로 드래그</strong>하거나 클릭해서 선택하세요</div>
+        <div class="hint">위치: 문서\Assetto Corsa Competizione\Results &nbsp;·&nbsp; 폴더째 끌어다 놓아도 됩니다 (UTF-16 자동 처리)</div>
+        <div class="hint" style="color:var(--accent2)">⚠ ACC는 매 레이스 후 Race.json을 덮어쓰므로, 각 라운드가 끝날 때마다 불러와 주세요. 한번 불러온 결과는 앱이 계속 기억합니다.</div>
+      </div>
+      <div class="file-actions">
+        <button id="btnPickFiles" class="primary">파일 선택…</button>
+        <button id="btnPickFolder">폴더 선택…</button>
+        <button id="btnClear" class="danger">전체 초기화</button>
+        <span id="loadStatus"></span>
+      </div>
+      <div class="file-actions" id="watchRow">
+        <button id="btnWatch">📡 Results 폴더 자동 감시</button>
+        <button id="btnWatchStop" class="danger" hidden>감시 중지</button>
+        <span id="watchStatus"></span>
+      </div>
+      <input type="file" id="fileInput" multiple accept=".json,application/json" hidden>
+      <input type="file" id="folderInput" webkitdirectory hidden>
+    </div>
+  </section>
+
+  <!-- 1.5 라이브 -->
+  <section>
+    <h2>&#128250; 라이브 (게임 실시간)
+      <span class="spacer"></span>
+      <button id="btnLive" class="mini">라이브 연결</button>
+      <button id="btnLiveStop" class="mini danger" hidden>연결 끊기</button>
+    </h2>
+    <div class="body" id="liveBody">
+      <div class="empty-note">게임의 실시간 순위를 보려면 <b>live-bridge.py</b>를 실행하고 "라이브 연결"을 누르세요.<br>
+        <small>설정 방법: 문서\Assetto Corsa Competizione\Config\broadcasting.json에서
+        <b>updListenerPort</b>=9000 (udp가 아니라 upd — ACC의 오타!), connectionPassword="asd" 지정
+        후 게임 재시작 → <code>python live-bridge.py</code>. 포트는 실제 세션(트랙 위)에서 열립니다.</small></div>
+    </div>
+  </section>
+
+  <!-- 2. 포인트 설정 -->
+  <section>
+    <h2>&#9881;&#65039; 포인트 설정
+      <span class="spacer"></span>
+      <select id="presetSelect" title="프리셋"></select>
+      <button id="btnAddPos" class="mini">+ 순위 추가</button>
+      <button id="btnRemovePos" class="mini">− 마지막 제거</button>
+    </h2>
+    <div class="body">
+      <div class="points-grid" id="pointsGrid"></div>
+      <div class="opt-row">
+        <label><input type="checkbox" id="optPole"> 폴 포지션 보너스</label>
+        <label class="dim">+<input type="number" id="poleBonus" value="1" min="0"> 점</label>
+        <label><input type="checkbox" id="optFL"> 패스티스트 랩 보너스</label>
+        <label class="dim">+<input type="number" id="flBonus" value="1" min="0"> 점</label>
+        <label><input type="checkbox" id="optDrop"> 드롭 라운드</label>
+        <label class="dim">최하위 <input type="number" id="dropCount" value="1" min="1"> 라운드 제외</label>
+      </div>
+      <div class="opt-row">
+        <label><input type="checkbox" id="optTeamName"> 팀명을 드라이버 이름으로 표시</label>
+        <label><input type="checkbox" id="optLogoPlate"> 로고 흰색 배지</label>
+        <span class="dim">끄면 투명 로고가 배경 위에 표시 (검은 로고는 흰 글로우 처리)</span>
+        <span class="dim">오프라인 챔피언십은 게임이 팀명 칸의 이름을 리더보드에 표시합니다 (AI 챔피언십이면 끄세요)</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. 라운드 -->
+  <section>
+    <h2>&#127950;&#65039; 라운드
+      <span class="spacer"></span>
+      <select id="seasonSelect" title="챔피언십 선택"></select>
+      <button id="btnSeasonNew" class="mini">+ 새 챔피언십</button>
+      <button id="btnSeasonRename" class="mini">이름 변경</button>
+      <button id="btnSeasonDel" class="mini danger">삭제</button>
+    </h2>
+    <div class="body">
+      <div id="qualiInfo" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
+      <div id="roundsBody"></div>
+    </div>
+  </section>
+
+  <!-- 4. 순위표 -->
+  <section>
+    <h2>&#127942; 챔피언십 순위표
+      <span id="standingsSeason" style="font-weight:400;font-size:12px;color:var(--accent2)"></span>
+      <span class="spacer"></span>
+      <select id="classFilter">
+        <option value="-1">전체 클래스</option>
+        <option value="0">Overall / Pro</option>
+        <option value="1">Pro-Am</option>
+        <option value="2">Am</option>
+        <option value="3">Silver</option>
+      </select>
+      <label style="font-size:12px;display:flex;align-items:center;gap:5px;font-weight:400">
+        <input type="checkbox" id="optTeams"> 팀 순위
+      </label>
+      <button id="btnCsv" class="mini">CSV 내보내기</button>
+    </h2>
+    <div class="body" id="standingsBody"></div>
+  </section>
+
+</main>
+<footer>ACC Custom Championship Points · 로컬에서만 동작하며 어떤 데이터도 전송하지 않습니다</footer>
+
+<script>
+/*__CORE_START__*/
+// ============================================================
+// 핵심 로직 (UI 비의존 — 테스트에서 그대로 사용)
+// ============================================================
+const DEFAULT_POINTS = [12, 10, 8, 7, 6, 5, 4, 3, 2, 1];
+
+const PRESETS = [
+  { id: "custom12", name: "기본 12-10-8-7-6-5-4-3-2-1", points: [12, 10, 8, 7, 6, 5, 4, 3, 2, 1] },
+  { id: "f1",       name: "F1 25-18-15-12-10-8-6-4-2-1", points: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1] },
+  { id: "cyber",    name: "사이버 포뮬러 10-6-4-3-2-1",   points: [10, 6, 4, 3, 2, 1] },
+  { id: "motogp",   name: "MotoGP 25-20-16-13-11-10-9-8-7-6-5-4-3-2-1", points: [25, 20, 16, 13, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1] },
+];
+
+// ACC 결과 파일은 UTF-16 LE. BOM으로 판별하고, BOM이 없어도 NUL 바이트 패턴으로 추정한다.
+function decodeResultBuffer(buf) {
+  const u8 = new Uint8Array(buf);
+  if (u8.length >= 2 && u8[0] === 0xFF && u8[1] === 0xFE) return new TextDecoder("utf-16le").decode(buf);
+  if (u8.length >= 2 && u8[0] === 0xFE && u8[1] === 0xFF) return new TextDecoder("utf-16be").decode(buf);
+  let nulEven = 0, nulOdd = 0;
+  const n = Math.min(u8.length, 512);
+  for (let i = 0; i < n; i++) if (u8[i] === 0) (i % 2 === 0 ? nulEven++ : nulOdd++);
+  if (nulOdd > n / 8) return new TextDecoder("utf-16le").decode(buf);
+  if (nulEven > n / 8) return new TextDecoder("utf-16be").decode(buf);
+  return new TextDecoder("utf-8").decode(buf);
+}
+
+// 'R' = 레이스, 'Q' = 퀄리파잉, 'P' = 그 외(프랙티스 등)
+function detectSessionType(json) {
+  const def = json.sessionDef || {};
+  let t = def.sessionType ?? json.sessionType ?? (json.sessionResult && json.sessionResult.type);
+  if (typeof t === "string") {
+    const s = t.toUpperCase();
+    if (s.startsWith("R")) return "R";
+    if (s.startsWith("Q")) return "Q";
+    return "P";
+  }
+  if (typeof t === "number") {
+    if (t === 10) return "R"; // 오프라인 커스텀 챔피언십 포맷
+    if (t === 4) return "Q";
+    if (t === 1 && json.sessionResult) return "R"; // 서버 덤프 포맷의 sessionResult.type
+    return "P";
+  }
+  return "P";
+}
+
+function getTrackName(json) {
+  const def = json.sessionDef || {};
+  const direct = def.trackName || def.track || def.Track || json.trackName || json.track;
+  if (direct && typeof direct === "string") return direct;
+  // 고정 키에 없으면 파일 전체에서 알려진 트랙 id와 일치하는 문자열을 탐색
+  return findTrackString(def) || findTrackString(json) || "";
+}
+
+// 객체/배열을 재귀 탐색해 알려진 트랙 id(monza, spa, cota_2020 …)와
+// 일치하는 문자열을 찾는다. 드라이버/팀 이름과의 우연한 충돌을 피하기 위해
+// 정확히 트랙 id 형태인 문자열만 인정한다.
+function findTrackString(obj, depth = 0) {
+  if (obj === null || obj === undefined || depth > 6) return null;
+  if (typeof obj === "string") {
+    const key = obj.trim().toLowerCase().replace(/_\d{4}$/, "");
+    return Object.prototype.hasOwnProperty.call(TRACK_NAMES, key) ? obj.trim() : null;
+  }
+  if (Array.isArray(obj)) {
+    for (const v of obj) { const r = findTrackString(v, depth + 1); if (r) return r; }
+    return null;
+  }
+  if (typeof obj === "object") {
+    for (const v of Object.values(obj)) { const r = findTrackString(v, depth + 1); if (r) return r; }
+    return null;
+  }
+  return null;
+}
+
+const TRACK_NAMES = {
+  monza: "Monza", zolder: "Zolder", brands_hatch: "Brands Hatch", silverstone: "Silverstone",
+  paul_ricard: "Paul Ricard", misano: "Misano", spa: "Spa-Francorchamps", nurburgring: "Nürburgring",
+  nurburgring_24h: "Nürburgring 24h", barcelona: "Barcelona", hungaroring: "Hungaroring",
+  zandvoort: "Zandvoort", kyalami: "Kyalami", mount_panorama: "Mount Panorama (Bathurst)",
+  suzuka: "Suzuka", laguna_seca: "Laguna Seca", imola: "Imola", oulton_park: "Oulton Park",
+  donington: "Donington Park", snetterton: "Snetterton", cota: "COTA (Austin)",
+  indianapolis: "Indianapolis", watkins_glen: "Watkins Glen", valencia: "Valencia",
+  red_bull_ring: "Red Bull Ring",
+};
+
+function prettyTrack(raw) {
+  if (!raw) return "(알 수 없는 트랙)";
+  const key = String(raw).toLowerCase().replace(/_\d{4}$/, "");
+  return TRACK_NAMES[key] || raw;
+}
+
+const CAR_MODELS = {
+  0: "Porsche 991 GT3 R", 1: "Mercedes-AMG GT3", 2: "Ferrari 488 GT3", 3: "Audi R8 LMS",
+  4: "Lamborghini Huracán GT3", 5: "McLaren 650S GT3", 6: "Nissan GT-R Nismo GT3 2018",
+  7: "BMW M6 GT3", 8: "Bentley Continental GT3 2018", 9: "Porsche 991 II GT3 Cup",
+  10: "Nissan GT-R Nismo GT3 2015", 11: "Bentley Continental GT3 2015",
+  12: "AMR V12 Vantage GT3", 13: "Reiter R-EX GT3", 14: "Emil Frey Jaguar G3",
+  15: "Lexus RC F GT3", 16: "Lamborghini Huracán GT3 Evo", 17: "Honda NSX GT3",
+  18: "Lamborghini Huracán SuperTrofeo", 19: "Audi R8 LMS Evo", 20: "AMR V8 Vantage GT3",
+  21: "Honda NSX GT3 Evo", 22: "McLaren 720S GT3", 23: "Porsche 911 II GT3 R",
+  24: "Ferrari 488 GT3 Evo", 25: "Mercedes-AMG GT3 2020", 26: "Ferrari 488 Challenge Evo",
+  27: "BMW M2 CS Racing", 28: "Porsche 992 GT3 Cup", 29: "Lamborghini Huracán ST EVO2",
+  30: "BMW M4 GT3", 31: "Audi R8 LMS GT3 Evo II", 32: "Ferrari 296 GT3",
+  33: "Lamborghini Huracán GT3 Evo 2", 34: "Porsche 992 GT3 R", 35: "McLaren 720S GT3 Evo",
+  36: "Ford Mustang GT3",
+  50: "Alpine A110 GT4", 51: "Aston Martin Vantage GT4", 52: "Audi R8 LMS GT4",
+  53: "BMW M4 GT4", 55: "Chevrolet Camaro GT4", 56: "Ginetta G55 GT4", 57: "KTM X-Bow GT4",
+  58: "Maserati MC GT4", 59: "McLaren 570S GT4", 60: "Mercedes-AMG GT4", 61: "Porsche 718 Cayman GT4",
+  80: "Audi R8 LMS GT2", 82: "KTM X-Bow GT2", 83: "Maserati MC20 GT2", 84: "Mercedes-AMG GT2",
+  85: "Porsche 911 GT2 RS CS Evo", 86: "Porsche 935",
+};
+
+function carName(id) {
+  if (id === null || id === undefined) return "—";
+  return CAR_MODELS[id] || `Car #${id}`;
+}
+
+// 결과 JSON 텍스트 → 세션 객체. 리더보드가 없으면 null.
+function parseSession(text, fileName, fileTime) {
+  let json;
+  try { json = JSON.parse(text); } catch { return null; }
+  const lines = (json.snapShot && json.snapShot.leaderBoardLines)
+    || (json.sessionResult && json.sessionResult.leaderBoardLines);
+  if (!Array.isArray(lines) || lines.length === 0) return null;
+
+  // 파일명에 yyMMdd_HHmmss 타임스탬프가 있으면 우선 사용 (서버 덤프 포맷)
+  let time = fileTime || 0;
+  const m = /(\d{6})_(\d{6})/.exec(fileName || "");
+  if (m) {
+    const d = m[1], t = m[2];
+    const dt = new Date(2000 + +d.slice(0, 2), +d.slice(2, 4) - 1, +d.slice(4, 6),
+      +t.slice(0, 2), +t.slice(2, 4), +t.slice(4, 6));
+    if (!isNaN(dt)) time = dt.getTime();
+  }
+
+  const isOffline = !!(json.snapShot && json.snapShot.leaderBoardLines);
+  const parsed = lines.map((ln) => {
+    const car = ln.car || {};
+    const drivers = car.drivers || [];
+    const d0 = drivers[0] || {};
+    let name = (d0.lastName || "").trim()
+      || [d0.firstName, d0.lastName].filter(Boolean).join(" ").trim()
+      || d0.shortName || `#${car.raceNumber}`;
+    const rawTeam = (car.teamName || "").trim();
+    let team = rawTeam;
+    // 오프라인 커스텀 챔피언십: 게임에 입력한 전체 이름이 teamName에 들어가고
+    // lastName에는 일부만 남거나(teamName '이태희' / lastName '태희') 아예 빈 경우도 있다.
+    // teamName이 lastName으로 끝나거나 이름이 비어 있으면 teamName을 표시 이름으로 사용.
+    const hasRealName = !!((d0.lastName || "").trim() || (d0.firstName || "").trim());
+    if (team && (!hasRealName
+        || (!(d0.firstName || "").trim() && (team === name || team.endsWith(name))))) {
+      name = team; team = "";
+    }
+    const timing = ln.timing || {};
+    return {
+      raceNumber: car.raceNumber ?? -1,
+      name,
+      team,
+      // 오프라인 챔피언십에서 게임이 리더보드에 표시하는 이름은 teamName이다.
+      // "팀명을 드라이버 이름으로 표시" 옵션에서 사용.
+      entryName: isOffline && rawTeam ? rawTeam : null,
+      cupCategory: car.cupCategory ?? 0,
+      carId: car.carId ?? null,
+      carModel: car.carModel ?? null,
+      lapCount: timing.lapCount ?? 0,
+      bestLap: timing.bestLap ?? 0,
+      totalTime: timing.totalTime ?? 0,
+      laps: [],
+    };
+  });
+  extractLaps(json, parsed);
+
+  return {
+    fileName: fileName || "",
+    time,
+    trackRaw: getTrackName(json),
+    type: detectSessionType(json),
+    lines: parsed,
+  };
+}
+
+// 최상위 laps 배열(매 랩 기록)을 carId로 드라이버에 연결한다.
+// carId는 세션 안에서만 유효하므로 같은 세션의 leaderBoardLines와만 매칭.
+function extractLaps(json, lines) {
+  const arr = json.laps;
+  if (!Array.isArray(arr) || !arr.length) return;
+  const byCarId = new Map(lines.filter(l => l.carId !== null).map(l => [l.carId, l]));
+  for (const lap of arr) {
+    if (!lap || typeof lap !== "object") continue;
+    const line = byCarId.get(lap.carId ?? lap.carIndex);
+    if (!line) continue;
+    const t = lap.laptime ?? lap.lapTime ?? lap.time;
+    if (typeof t !== "number" || t <= 0) continue;
+    // 오프라인 포맷은 flags 비트로 유효성 표시 (bit0 = 무효, 1024 = 첫 랩)
+    const valid = lap.isValidForBest ?? lap.isValid
+      ?? (typeof lap.flags === "number" ? (lap.flags & 1) === 0 : true);
+    line.laps.push({
+      t,
+      s: Array.isArray(lap.splits) ? lap.splits : (Array.isArray(lap.sectors) ? lap.sectors : []),
+      v: valid,
+    });
+  }
+}
+
+// 1위와의 격차: 랩 다운이면 "+N랩", 같은 랩이면 시간 차
+function formatGap(leader, ln) {
+  if (!leader || ln === leader) return "—";
+  if ((ln.lapCount || 0) < (leader.lapCount || 0)) return `+${leader.lapCount - ln.lapCount}랩`;
+  if (!ln.totalTime || !leader.totalTime || ln.totalTime <= 0 || leader.totalTime <= 0
+      || ln.totalTime >= INVALID_LAP || leader.totalTime >= INVALID_LAP) return "—";
+  const d = ln.totalTime - leader.totalTime;
+  if (d < 0) return "—";
+  if (d < 60000) return `+${(d / 1000).toFixed(3)}`;
+  return `+${formatLapTime(d)}`;
+}
+
+// 같은 트랙에서 레이스보다 먼저 끝난 가장 가까운 퀄리파잉 세션
+function findQualiFor(race, qualiSessions) {
+  let best = null;
+  for (const q of qualiSessions) {
+    if (q.trackRaw !== race.trackRaw) continue;
+    if (race.time && q.time && q.time > race.time) continue;
+    if (!best || (q.time || 0) > (best.time || 0)) best = q;
+  }
+  return best;
+}
+
+function findPoleRaceNumber(race, qualiSessions) {
+  const q = findQualiFor(race, qualiSessions);
+  return q && q.lines[0] ? q.lines[0].raceNumber : null;
+}
+
+// 차량 메이커 배지 (타이밍 모니터식 3글자 코드 + 브랜드 컬러)
+const MAKER_DEFS = [
+  ["POR", "#d5001c", "#fff", [0, 9, 23, 28, 34, 61, 85, 86]],
+  ["MER", "#00a19b", "#fff", [1, 25, 60, 84]],
+  ["FER", "#ef1a2d", "#fff", [2, 24, 26, 32]],
+  ["AUD", "#bb0a30", "#fff", [3, 19, 31, 52, 80]],
+  ["LAM", "#ddb321", "#15130a", [4, 16, 18, 29, 33]],
+  ["MCL", "#ff8000", "#1b1206", [5, 22, 35, 59]],
+  ["NIS", "#c3002f", "#fff", [6, 10]],
+  ["BMW", "#0066b1", "#fff", [7, 27, 30, 53]],
+  ["BEN", "#00563f", "#fff", [8, 11]],
+  ["AMR", "#00665e", "#fff", [12, 20, 51]],
+  ["REX", "#6d7278", "#fff", [13]],
+  ["JAG", "#9e1b32", "#fff", [14]],
+  ["LEX", "#2d4f6b", "#fff", [15]],
+  ["HON", "#e40521", "#fff", [17, 21]],
+  ["FOR", "#1351d8", "#fff", [36]],
+  ["ALP", "#0078c1", "#fff", [50]],
+  ["CHE", "#f7b500", "#1b1206", [55]],
+  ["GIN", "#00843d", "#fff", [56]],
+  ["KTM", "#ff6600", "#1b1206", [57, 82]],
+  ["MAS", "#003da5", "#fff", [58, 83]],
+];
+const CAR_MAKER = {};
+for (const [code, bg, fg, ids] of MAKER_DEFS)
+  for (const id of ids) CAR_MAKER[id] = { code, bg, fg };
+
+function makerOf(carModel) {
+  return CAR_MAKER[carModel] ?? null;
+}
+
+const INVALID_LAP = 2147483647; // ACC가 미기록 랩에 쓰는 값
+
+function findFastestLapRaceNumber(race) {
+  let best = null;
+  for (const ln of race.lines) {
+    if (!ln.lapCount || !ln.bestLap || ln.bestLap <= 0 || ln.bestLap >= INVALID_LAP) continue;
+    if (!best || ln.bestLap < best.bestLap) best = ln;
+  }
+  return best ? best.raceNumber : null;
+}
+
+// races: 라운드 순서대로 정렬된 레이스 세션 배열 (각 항목에 poleRaceNumber가 미리 셋팅돼 있을 수 있음)
+// settings: { points:[], poleBonus:0, flBonus:0, dropCount:0 }
+function computeChampionship(races, settings) {
+  const pts = settings.points || DEFAULT_POINTS;
+  const poleBonus = settings.poleBonus || 0;
+  const flBonus = settings.flBonus || 0;
+  const dropCount = settings.dropCount || 0;
+
+  const drivers = new Map(); // raceNumber → entry
+  const roundResults = [];   // 라운드별 {raceNumber → {pos, points, pole, fl}}
+
+  races.forEach((race, ri) => {
+    // 통계(폴/FL/퀄리)는 보너스 설정과 무관하게 항상 집계, 점수는 보너스가 켜진 경우만
+    const flNum = findFastestLapRaceNumber(race);
+    const poleNum = race.poleRaceNumber ?? null;
+    const perDriver = new Map();
+
+    race.lines.forEach((ln, idx) => {
+      const base = pts[idx] || 0;
+      const pole = poleNum !== null && ln.raceNumber === poleNum;
+      const fl = flNum !== null && ln.raceNumber === flNum;
+      const bonus = (pole ? poleBonus : 0) + (fl ? flBonus : 0);
+      perDriver.set(ln.raceNumber, { pos: idx + 1, points: base + bonus, base, bonus, pole, fl });
+
+      let e = drivers.get(ln.raceNumber);
+      if (!e) {
+        e = { raceNumber: ln.raceNumber, name: ln.name, team: ln.team, cupCategory: ln.cupCategory,
+              carModel: ln.carModel ?? null,
+              wins: 0, podiums: 0, poles: 0, fls: 0,
+              qualiSum: 0, qualiCount: 0, qualiBest: Infinity, qualiBestCount: 0,
+              posCount: {}, perRound: new Array(races.length).fill(null) };
+        drivers.set(ln.raceNumber, e);
+      }
+      // 최근 레이스 기준으로 이름/팀/차량 갱신
+      e.name = ln.name; if (ln.team) e.team = ln.team; e.cupCategory = ln.cupCategory;
+      if (ln.carModel !== undefined && ln.carModel !== null) e.carModel = ln.carModel;
+      if (idx === 0) e.wins++;
+      if (idx < 3) e.podiums++;
+      if (pole) e.poles++;
+      if (fl) e.fls++;
+      const qp = race.qualiPos ? race.qualiPos[ln.raceNumber] : undefined;
+      if (qp) {
+        e.qualiSum += qp; e.qualiCount++;
+        if (qp < e.qualiBest) { e.qualiBest = qp; e.qualiBestCount = 1; }
+        else if (qp === e.qualiBest) e.qualiBestCount++;
+      }
+      e.posCount[idx + 1] = (e.posCount[idx + 1] || 0) + 1;
+      e.perRound[ri] = perDriver.get(ln.raceNumber);
+    });
+    roundResults.push(perDriver);
+  });
+
+  // 드롭 라운드: 결장은 0점으로 간주하고 가장 낮은 dropCount개 라운드 점수를 제외
+  const standings = [...drivers.values()].map((e) => {
+    const scores = e.perRound.map((r) => (r ? r.points : 0));
+    const dropIdx = new Set();
+    if (dropCount > 0 && races.length > 0) {
+      const order = scores.map((s, i) => [s, i]).sort((a, b) => a[0] - b[0]);
+      for (let k = 0; k < Math.min(dropCount, races.length); k++) dropIdx.add(order[k][1]);
+    }
+    let total = 0;
+    scores.forEach((s, i) => { if (!dropIdx.has(i)) total += s; });
+    return { ...e, total, dropIdx };
+  });
+
+  // 동점 처리: 총점 → 우승수 → 2위수 → 3위수 … → 이름
+  standings.sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    const maxPos = Math.max(
+      ...Object.keys(a.posCount).map(Number), ...Object.keys(b.posCount).map(Number), 1);
+    for (let p = 1; p <= maxPos; p++) {
+      const d = (b.posCount[p] || 0) - (a.posCount[p] || 0);
+      if (d !== 0) return d;
+    }
+    return String(a.name).localeCompare(String(b.name), "ko");
+  });
+
+  return { standings, roundResults };
+}
+
+function formatLapTime(ms) {
+  if (!ms || ms <= 0 || ms >= INVALID_LAP) return "—";
+  const t = Math.round(ms);
+  const m = Math.floor(t / 60000), s = Math.floor((t % 60000) / 1000), f = t % 1000;
+  return `${m}:${String(s).padStart(2, "0")}.${String(f).padStart(3, "0")}`;
+}
+
+function formatTotalTime(ms) {
+  if (!ms || ms <= 0 || ms >= INVALID_LAP * 2) return "—";
+  const t = Math.round(ms);
+  const h = Math.floor(t / 3600000), m = Math.floor((t % 3600000) / 60000),
+        s = Math.floor((t % 60000) / 1000), f = t % 1000;
+  return (h ? `${h}:${String(m).padStart(2, "0")}` : `${m}`) +
+    `:${String(s).padStart(2, "0")}.${String(f).padStart(3, "0")}`;
+}
+/*__CORE_END__*/
+
+// ============================================================
+// 앱 상태 + 저장
+// ============================================================
+const STORE_KEY = "accChampPoints.v1";
+
+const state = {
+  sessions: [],          // parseSession 결과 + id (+ season)
+  order: [],             // 레이스 세션 id의 라운드 순서
+  included: {},          // id → bool
+  names: {},             // id → 수동 트랙/라운드 이름
+  watchSeen: {},         // 감시 모드: 파일명 → 마지막으로 읽은 수정시각
+  driverImages: {},      // raceNumber → 드라이버 사진 (dataURL)
+  lastLiveTrack: null,   // {name, time} 마지막으로 본 라이브 트랙 (새로고침 유지)
+  seasons: [{ id: "s1", name: "챔피언십 1" }],
+  currentSeason: "s1",
+  settings: {
+    points: [...DEFAULT_POINTS],
+    poleOn: false, poleBonus: 1,
+    flOn: false, flBonus: 1,
+    dropOn: false, dropCount: 1,
+    teamAsName: true, logoPlate: true,
+    classFilter: -1, teamsOn: false,
+  },
+};
+
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (Array.isArray(s.sessions)) state.sessions = s.sessions;
+    if (Array.isArray(s.order)) state.order = s.order;
+    if (s.included) state.included = s.included;
+    if (s.names) state.names = s.names;
+    if (s.watchSeen) state.watchSeen = s.watchSeen;
+    if (s.driverImages) state.driverImages = s.driverImages;
+    if (s.lastLiveTrack) state.lastLiveTrack = s.lastLiveTrack;
+    if (Array.isArray(s.seasons) && s.seasons.length) state.seasons = s.seasons;
+    if (s.currentSeason) state.currentSeason = s.currentSeason;
+    if (s.settings) Object.assign(state.settings, s.settings);
+  } catch {}
+  // 마이그레이션: 시즌 정보가 없는 기존 데이터는 첫 챔피언십에 귀속
+  if (!state.seasons.some(x => x.id === state.currentSeason)) state.currentSeason = state.seasons[0].id;
+  for (const sess of state.sessions) if (!sess.season) sess.season = state.seasons[0].id;
+}
+
+// 같은 결과 파일을 서로 다른 챔피언십에 따로 넣을 수 있도록 id에 시즌을 포함
+function sessionId(sess) { return `${sess.season || ""}|${sess.fileName}|${sess.time}`; }
+
+function seasonSessions() {
+  return state.sessions.filter(s => s.season === state.currentSeason);
+}
+
+function displayTrack(sess) {
+  return state.names[sessionId(sess)] || prettyTrack(sess.trackRaw);
+}
+
+function raceSessions() {
+  const byId = new Map(seasonSessions().filter(s => s.type === "R").map(s => [sessionId(s), s]));
+  // 전체 순서 목록 정리: 사라진 id 제거, 새 레이스는 시간순으로 뒤에 추가
+  const allIds = new Set(state.sessions.filter(s => s.type === "R").map(sessionId));
+  state.order = state.order.filter(id => allIds.has(id));
+  const missing = state.sessions
+    .filter(s => s.type === "R" && !state.order.includes(sessionId(s)))
+    .sort((a, b) => (a.time || 0) - (b.time || 0)).map(sessionId);
+  state.order.push(...missing);
+  // 현재 챔피언십 소속 레이스만, 전체 순서를 따라 반환
+  return state.order.filter(id => byId.has(id)).map(id => byId.get(id));
+}
+
+function includedRaces() {
+  return raceSessions().filter(s => state.included[sessionId(s)] !== false);
+}
+
+// ============================================================
+// 파일 로딩
+// ============================================================
+async function addFiles(files) {
+  let ok = 0, skipped = 0;
+  for (const f of files) {
+    if (!/\.json$/i.test(f.name)) { continue; }
+    try {
+      const buf = await f.arrayBuffer();
+      const sess = parseSession(decodeResultBuffer(buf), f.name, f.lastModified);
+      if (!sess) { skipped++; continue; }
+      sess.season = state.currentSeason;
+      const id = sessionId(sess);
+      sess.importedAt = Date.now();
+      const existing = state.sessions.findIndex(s => sessionId(s) === id);
+      if (existing >= 0) state.sessions[existing] = sess; else state.sessions.push(sess);
+      // 결과 파일에 트랙 정보가 없으면 라이브 데이터의 트랙 이름으로 자동 명명.
+      // 라이브가 막 끊겼거나 새로고침 직후라도, 최근(±3시간) 저장된 트랙이 있으면 사용.
+      if (sess.type === "R" && !sess.trackRaw && !state.names[id]) {
+        const lt = liveTrackName
+          || (state.lastLiveTrack && Math.abs(Date.now() - state.lastLiveTrack.time) < 3 * 3600 * 1000
+              ? state.lastLiveTrack.name : "");
+        if (lt) state.names[id] = prettyTrack(lt);
+      }
+      ok++;
+    } catch { skipped++; }
+  }
+  const races = seasonSessions().filter(s => s.type === "R").length;
+  const seasonName = (state.seasons.find(s => s.id === state.currentSeason) || {}).name || "";
+  document.getElementById("loadStatus").textContent =
+    `${ok}개 읽음${skipped ? `, ${skipped}개 건너뜀` : ""} → "${seasonName}"에 추가 · 이 챔피언십 레이스 ${races}개`;
+  save(); renderAll();
+}
+
+async function collectDropped(dt) {
+  const files = [];
+  const walk = async (entry) => {
+    if (entry.isFile) {
+      await new Promise(res => entry.file(f => { files.push(f); res(); }, res));
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      let batch;
+      do {
+        batch = await new Promise(res => reader.readEntries(res, () => res([])));
+        for (const e of batch) await walk(e);
+      } while (batch.length);
+    }
+  };
+  if (dt.items) {
+    for (const item of [...dt.items]) {
+      const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+      if (entry) await walk(entry);
+      else { const f = item.getAsFile && item.getAsFile(); if (f) files.push(f); }
+    }
+  }
+  if (!files.length && dt.files) files.push(...dt.files);
+  return files;
+}
+
+// ============================================================
+// 폴더 자동 감시 (File System Access API — 크롬/엣지)
+// 폴더를 한 번 지정하면 주기적으로 확인해서, ACC가 결과 파일을
+// 새로 쓸 때마다 자동으로 불러온다. 핸들은 IndexedDB에 저장되어
+// 다시 열어도 클릭 한 번으로 감시를 재개할 수 있다.
+// ============================================================
+const WATCH_INTERVAL_MS = 5000;
+let watchHandle = null, watchTimer = null;
+
+const handleStore = {
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open("accChampPoints.fs", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("handles");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async set(v) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").put(v, "resultsDir");
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  },
+  async get() {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const rq = db.transaction("handles").objectStore("handles").get("resultsDir");
+      rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error);
+    });
+  },
+  async clear() {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").delete("resultsDir");
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  },
+};
+
+function setWatchStatus(text, on) {
+  const el = document.getElementById("watchStatus");
+  el.innerHTML = (on ? '<span class="watch-dot"></span>' : "") + esc(text);
+  document.getElementById("btnWatch").hidden = !!on;
+  document.getElementById("btnWatchStop").hidden = !on;
+}
+
+async function pollWatch() {
+  if (!watchHandle) return;
+  try {
+    const fresh = [];
+    for await (const entry of watchHandle.values()) {
+      if (entry.kind !== "file" || !/\.json$/i.test(entry.name)) continue;
+      const f = await entry.getFile();
+      if (state.watchSeen[entry.name] === f.lastModified) continue;
+      state.watchSeen[entry.name] = f.lastModified;
+      fresh.push(f);
+    }
+    if (fresh.length) await addFiles(fresh);
+    setWatchStatus(`감시 중 · 마지막 확인 ${new Date().toLocaleTimeString("ko-KR")}` +
+      (fresh.length ? ` · 새 결과 ${fresh.length}개 추가됨` : ""), true);
+  } catch (e) {
+    setWatchStatus(`감시 오류: ${e.message} — 다시 시도합니다`, true);
+  }
+}
+
+async function startWatch(handle) {
+  watchHandle = handle;
+  await handleStore.set(handle).catch(() => {});
+  if (watchTimer) clearInterval(watchTimer);
+  setWatchStatus("감시 시작…", true);
+  await pollWatch();
+  watchTimer = setInterval(pollWatch, WATCH_INTERVAL_MS);
+}
+
+function stopWatch() {
+  if (watchTimer) clearInterval(watchTimer);
+  watchTimer = null; watchHandle = null;
+  handleStore.clear().catch(() => {});
+  setWatchStatus("", false);
+  document.getElementById("btnWatch").textContent = "📡 Results 폴더 자동 감시";
+}
+
+async function onWatchClick() {
+  try {
+    let handle = await handleStore.get().catch(() => null);
+    if (handle) {
+      // 저장된 폴더가 있으면 권한만 다시 받는다
+      const perm = await handle.requestPermission({ mode: "read" });
+      if (perm !== "granted") handle = null;
+    }
+    if (!handle) handle = await window.showDirectoryPicker({ id: "accResults" });
+    await startWatch(handle);
+  } catch (e) {
+    if (e && e.name !== "AbortError") alert("폴더 감시를 시작하지 못했습니다: " + e.message);
+  }
+}
+
+async function tryResumeWatch() {
+  if (!window.showDirectoryPicker) {
+    document.getElementById("watchRow").hidden = true; // 미지원 브라우저(모바일 등)
+    return;
+  }
+  const handle = await handleStore.get().catch(() => null);
+  if (!handle) return;
+  try {
+    const perm = await handle.queryPermission({ mode: "read" });
+    if (perm === "granted") await startWatch(handle);
+    else {
+      document.getElementById("btnWatch").textContent = "📡 폴더 감시 재개 (클릭)";
+      setWatchStatus("이전에 감시하던 폴더가 있습니다", false);
+    }
+  } catch {}
+}
+
+// ============================================================
+// 라이브 모드 — live-bridge.py(localhost HTTP)에서 게임 실시간 데이터 폴링
+// ============================================================
+const LIVE_URL = "http://127.0.0.1:8927/state";
+const LIVE_INTERVAL_MS = 1000;
+let liveTimer = null;
+let liveTrackName = "";   // 방송 API의 트랙 이름 — 새 라운드 자동 이름에 사용
+
+// 라이브 트랙 이름을 저장하고(새로고침에도 유지), 이름 없이 최근 불러온
+// 레이스 라운드에 소급 적용한다. (파일이 먼저 들어오고 트랙이 늦게 와도 OK)
+function rememberLiveTrack(name) {
+  if (!name) return;
+  liveTrackName = name;
+  state.lastLiveTrack = { name, time: Date.now() };
+  let changed = false;
+  for (const sess of state.sessions) {
+    if (sess.type !== "R" || sess.trackRaw) continue;
+    const id = sessionId(sess);
+    if (state.names[id]) continue;
+    // 이번 세션에서 최근(30분 내) 불러온 라운드만 소급 적용
+    if (!sess.importedAt || Date.now() - sess.importedAt > 30 * 60 * 1000) continue;
+    state.names[id] = prettyTrack(name);
+    changed = true;
+  }
+  if (changed) { save(); renderResults(); } else { save(); }
+}
+
+function liveDriverName(car) {
+  const d0 = (car.drivers || [])[0] || {};
+  let name = (d0.lastName || "").trim() || (d0.firstName || "").trim()
+    || d0.shortName || `#${car.raceNumber}`;
+  const team = (car.teamName || "").trim();
+  if (state.settings.teamAsName && team) return team;
+  if (team && !(d0.firstName || "").trim() && (team === name || team.endsWith(name))) return team;
+  return name;
+}
+
+async function pollLive() {
+  const body = document.getElementById("liveBody");
+  try {
+    const res = await fetch(LIVE_URL, { cache: "no-store" });
+    const s = await res.json();
+    if (!s.connected) {
+      body.innerHTML = `<div class="empty-note">브리지는 실행 중이지만 아직 게임과 연결되지 않았습니다.<br>
+        <small>게임이 세션에 들어가 있어야 하며, broadcasting.json 설정 후 게임을 재시작해야 합니다.</small></div>`;
+      return;
+    }
+    if (s.track && s.track !== liveTrackName) rememberLiveTrack(s.track);
+    else if (s.track) liveTrackName = s.track;
+    const remain = s.timeRemainMs != null
+      ? `${Math.floor(s.timeRemainMs / 60000)}:${String(Math.floor(s.timeRemainMs % 60000 / 1000)).padStart(2, "0")}` : "—";
+    const pts = state.settings.points;
+    const isRace = s.sessionType === "레이스";
+    const rows = (s.cars || []).map((c, i) => {
+      const pos = c.position || i + 1;
+      const pview = isRace ? (pts[pos - 1] || 0) : "";
+      return `<tr class="pos-${pos}">
+        <td>${pos}</td>
+        <td class="l"><span class="race-num">#${c.raceNumber}</span>${esc(liveDriverName(c))}</td>
+        <td class="l team-cell">${makerChipHtml(c.carModel)}${esc(carName(c.carModel))}</td>
+        <td>${c.laps ?? ""}</td>
+        <td>${formatLapTime(c.lastLap)}</td>
+        <td>${formatLapTime(c.bestLap)}</td>
+        ${isRace ? `<td class="total">${pview}</td>` : ""}
+      </tr>`;
+    }).join("");
+    body.innerHTML = `
+      <div style="margin-bottom:10px;font-size:13px;color:var(--muted)">
+        <span class="watch-dot"></span><b style="color:var(--text)">${esc(prettyTrack(s.track) || s.track || "")}</b>
+        &nbsp;·&nbsp; ${esc(s.sessionType || "")} (${esc(s.phase || "")}) &nbsp;·&nbsp; 남은 시간 ${remain}
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>P</th><th class="l">드라이버</th><th class="l">차량</th><th>랩</th>
+          <th>마지막 랩</th><th>베스트 랩</th>${isRace ? "<th>예상 포인트</th>" : ""}</tr></thead>
+        <tbody>${rows || ""}</tbody>
+      </table></div>
+      ${rows ? "" : '<div class="empty-note">차량 정보를 기다리는 중…</div>'}`;
+  } catch {
+    body.innerHTML = `<div class="empty-note">브리지(live-bridge.py)에 연결할 수 없습니다.<br>
+      <small>브리지를 실행한 뒤 다시 시도하세요: <code>python live-bridge.py</code></small></div>`;
+  }
+}
+
+function startLive() {
+  if (liveTimer) clearInterval(liveTimer);
+  document.getElementById("btnLive").hidden = true;
+  document.getElementById("btnLiveStop").hidden = false;
+  pollLive();
+  liveTimer = setInterval(pollLive, LIVE_INTERVAL_MS);
+}
+
+function stopLive() {
+  if (liveTimer) clearInterval(liveTimer);
+  liveTimer = null;
+  document.getElementById("btnLive").hidden = false;
+  document.getElementById("btnLiveStop").hidden = true;
+  document.getElementById("liveBody").innerHTML =
+    `<div class="empty-note">라이브 연결이 꺼져 있습니다.</div>`;
+}
+
+// ============================================================
+// 렌더링
+// ============================================================
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function lapListHtml(laps) {
+  const valid = laps.filter(l => l.v && l.t > 0 && l.t < INVALID_LAP);
+  const best = valid.length ? Math.min(...valid.map(l => l.t)) : null;
+  const items = laps.map((l, i) => {
+    const cls = !l.v ? "lap-invalid" : (best !== null && l.t === best ? "lap-best" : "");
+    const splits = (l.s || []).filter(x => typeof x === "number" && x > 0 && x < INVALID_LAP)
+      .map(x => (x / 1000).toFixed(3)).join(" · ");
+    return `<div class="lap-item ${cls}"><span class="lap-no">L${i + 1}</span><b>${formatLapTime(l.t)}</b>` +
+      (splits ? `<small>${splits}</small>` : "") + (!l.v ? '<small class="x">무효</small>' : "") + `</div>`;
+  }).join("");
+  return `<div class="lap-grid">${items}</div>`;
+}
+
+function currentSettings() {
+  const s = state.settings;
+  return {
+    points: s.points,
+    poleBonus: s.poleOn ? s.poleBonus : 0,
+    flBonus: s.flOn ? s.flBonus : 0,
+    dropCount: s.dropOn ? s.dropCount : 0,
+  };
+}
+
+// "팀명을 드라이버 이름으로" 옵션 적용
+function displayLine(ln) {
+  if (state.settings.teamAsName && ln.entryName) return { ...ln, name: ln.entryName, team: "" };
+  return ln;
+}
+
+function preparedRaces() {
+  const qualis = seasonSessions().filter(s => s.type === "Q");
+  return includedRaces().map(r => ({
+    ...r,
+    lines: r.lines.map(displayLine),
+    poleRaceNumber: findPoleRaceNumber(r, qualis),
+    qualiPos: (() => {
+      const q = findQualiFor(r, qualis);
+      return q ? Object.fromEntries(q.lines.map((ln, i) => [ln.raceNumber, i + 1])) : null;
+    })(),
+  }));
+}
+
+function makerChipHtml(carModel) {
+  const m = makerOf(carModel);
+  if (!m) return "";
+  // logos/<코드>.svg → .png → 텍스트 칩 순서로 폴백
+  return `<img class="mk-logo" src="logos/${m.code}.svg" alt="${m.code}" loading="lazy" data-code="${m.code}"
+      onerror="if(!this.dataset.alt){this.dataset.alt=1;this.src='logos/'+this.dataset.code+'.png';}else{this.style.display='none';this.nextElementSibling.style.display='';}">` +
+    `<span class="mk" style="background:${m.bg};color:${m.fg};display:none">${m.code}</span>`;
+}
+
+function qualiStatText(e) {
+  const bestQ = e.qualiBest === Infinity ? "—"
+    : `${e.qualiBest}위${e.qualiBestCount > 1 ? ` ×${e.qualiBestCount}` : ""}`;
+  const avgQ = e.qualiCount ? (e.qualiSum / e.qualiCount).toFixed(1) : "—";
+  return { bestQ, avgQ };
+}
+
+// 드라이버 사진: 클릭해서 등록/변경, Shift+클릭으로 삭제 (64px로 줄여 저장)
+function onAvatarClick(ev, num) {
+  if (ev.shiftKey) {
+    if (state.driverImages[num]) { delete state.driverImages[num]; save(); renderStandings(); }
+    return;
+  }
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = "image/*";
+  input.onchange = () => {
+    const f = input.files[0];
+    if (!f) return;
+    const img = new Image();
+    img.onload = () => {
+      const size = 64, cv = document.createElement("canvas");
+      cv.width = size; cv.height = size;
+      const cx = cv.getContext("2d");
+      const sc = Math.max(size / img.width, size / img.height);
+      cx.drawImage(img, (size - img.width * sc) / 2, (size - img.height * sc) / 2,
+        img.width * sc, img.height * sc);
+      URL.revokeObjectURL(img.src);
+      try {
+        state.driverImages[num] = cv.toDataURL("image/jpeg", 0.82);
+        save();
+      } catch { alert("사진을 저장하지 못했습니다 (저장 공간 부족)"); }
+      renderStandings();
+    };
+    img.src = URL.createObjectURL(f);
+  };
+  input.click();
+}
+
+function renderPointsEditor() {
+  const s = state.settings;
+  const grid = document.getElementById("pointsGrid");
+  grid.innerHTML = s.points.map((p, i) => `
+    <div class="pt-cell">
+      <label>${i + 1}위</label>
+      <input type="number" data-pos="${i}" value="${p}" min="0">
+    </div>`).join("");
+  grid.querySelectorAll("input").forEach(inp => {
+    inp.addEventListener("change", () => {
+      s.points[+inp.dataset.pos] = Math.max(0, +inp.value || 0);
+      save(); renderResults();
+    });
+  });
+
+  const sel = document.getElementById("presetSelect");
+  if (!sel.options.length) {
+    sel.innerHTML = `<option value="">프리셋 선택…</option>` +
+      PRESETS.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+  }
+
+  document.getElementById("optPole").checked = s.poleOn;
+  document.getElementById("poleBonus").value = s.poleBonus;
+  document.getElementById("optFL").checked = s.flOn;
+  document.getElementById("flBonus").value = s.flBonus;
+  document.getElementById("optDrop").checked = s.dropOn;
+  document.getElementById("dropCount").value = s.dropCount;
+  document.getElementById("optTeamName").checked = s.teamAsName;
+  document.getElementById("optLogoPlate").checked = s.logoPlate;
+  applyLogoPlate();
+}
+
+function applyLogoPlate() {
+  document.body.classList.toggle("logo-noplate", !state.settings.logoPlate);
+}
+
+function renderSeasonSelect() {
+  const sel = document.getElementById("seasonSelect");
+  sel.innerHTML = state.seasons.map(s =>
+    `<option value="${esc(s.id)}" ${s.id === state.currentSeason ? "selected" : ""}>${esc(s.name)}</option>`).join("");
+}
+
+function renderRounds() {
+  renderSeasonSelect();
+  const body = document.getElementById("roundsBody");
+  const races = raceSessions();
+  const qualis = seasonSessions().filter(s => s.type === "Q").length;
+  document.getElementById("qualiInfo").textContent =
+    qualis ? `퀄리파잉 ${qualis}개 인식됨 — 폴 보너스 매칭에 사용` : "";
+
+  if (!races.length) {
+    body.innerHTML = `<div class="empty-note">이 챔피언십에 불러온 레이스가 없습니다. 위에서 결과 파일을 불러오세요.<br>
+      <small>참고: ACC는 매 레이스 후 Race.json을 덮어쓰므로, 각 라운드가 끝날 때마다 불러와 주세요. 앱이 누적 저장합니다.</small></div>`;
+    return;
+  }
+
+  const settings = currentSettings();
+  const prepared = preparedRaces();
+  const { roundResults } = computeChampionship(prepared, settings);
+  const preparedIds = prepared.map(sessionId);
+
+  let roundNo = 0;
+  body.innerHTML = races.map((r, i) => {
+    const id = sessionId(r);
+    const inc = state.included[id] !== false;
+    if (inc) roundNo++;
+    const date = r.time ? new Date(r.time).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "";
+    const shownLines = r.lines.map(displayLine);
+    const winner = shownLines[0];
+    const pIdx = preparedIds.indexOf(id);
+    const res = pIdx >= 0 ? roundResults[pIdx] : null;
+
+    const leader = shownLines[0];
+    const detailRows = shownLines.map((ln, li) => {
+      const dr = res && res.get(ln.raceNumber);
+      const marks = dr ? `${dr.pole ? '<span class="bonus-mark p">P</span>' : ""}${dr.fl ? '<span class="bonus-mark f">FL</span>' : ""}` : "";
+      const hasLaps = Array.isArray(ln.laps) && ln.laps.length > 0;
+      const lapBtn = hasLaps
+        ? `<button class="mini lap-btn" data-act="laps" title="랩별 기록 보기">랩 ▾</button>` : "";
+      const lapRow = hasLaps
+        ? `<tr class="laps-row" hidden><td colspan="9">${lapListHtml(ln.laps)}</td></tr>` : "";
+      return `<tr class="pos-${li + 1}">
+        <td>${li + 1}</td>
+        <td class="l"><span class="race-num">#${ln.raceNumber}</span>${esc(ln.name)}${marks}</td>
+        <td class="l team-cell">${makerChipHtml(ln.carModel)}${esc(carName(ln.carModel))}</td>
+        <td class="l team-cell">${esc(ln.team || "—")}</td>
+        <td>${ln.lapCount}</td>
+        <td>${formatLapTime(ln.bestLap)}</td>
+        <td>${li === 0 ? "—" : esc(formatGap(leader, ln))}</td>
+        <td>${formatTotalTime(ln.totalTime)}</td>
+        <td class="total">${dr ? dr.points : "—"} ${lapBtn}</td>
+      </tr>${lapRow}`;
+    }).join("");
+
+    const moveSel = state.seasons.length > 1
+      ? `<select class="mini" data-act="move" data-id="${esc(id)}" title="다른 챔피언십으로 이동">${
+          state.seasons.map(s => `<option value="${esc(s.id)}" ${s.id === r.season ? "selected" : ""}>${esc(s.name)}</option>`).join("")
+        }</select>` : "";
+    return `<div class="round-card ${inc ? "" : "excluded"}">
+      <div class="round-head">
+        <span class="round-no">${inc ? "R" + roundNo : "제외"}</span>
+        <span class="round-title">${esc(displayTrack(r))}</span>
+        <button class="mini" data-act="rename" data-id="${esc(id)}" title="트랙/라운드 이름 입력">✏️</button>
+        <span class="round-meta">${esc(date)} · ${esc(r.fileName)} · 우승 #${winner.raceNumber} ${esc(winner.name)}</span>
+        <span class="grow"></span>
+        ${moveSel}
+        <button class="mini" data-act="up" data-id="${esc(id)}" ${i === 0 ? "disabled" : ""}>▲</button>
+        <button class="mini" data-act="down" data-id="${esc(id)}" ${i === races.length - 1 ? "disabled" : ""}>▼</button>
+        <label style="font-size:12px;display:flex;gap:5px;align-items:center">
+          <input type="checkbox" data-act="inc" data-id="${esc(id)}" ${inc ? "checked" : ""}> 포함
+        </label>
+        <button class="mini danger" data-act="del" data-id="${esc(id)}">삭제</button>
+      </div>
+      <details class="round-detail">
+        <summary>레이스 결과 보기 (${r.lines.length}명)</summary>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>순위</th><th class="l">드라이버</th><th class="l">차량</th><th class="l">팀</th><th>랩</th><th>베스트 랩</th><th>갭</th><th>총 시간</th><th>포인트</th></tr></thead>
+          <tbody>${detailRows}</tbody>
+        </table></div>
+      </details>
+    </div>`;
+  }).join("");
+
+  body.querySelectorAll("[data-act]").forEach(el => {
+    const id = el.dataset.id;
+    if (el.dataset.act === "laps") {
+      el.addEventListener("click", e => {
+        e.preventDefault();
+        const next = el.closest("tr").nextElementSibling;
+        if (next && next.classList.contains("laps-row")) next.hidden = !next.hidden;
+      });
+      return;
+    }
+    if (el.dataset.act === "inc") {
+      el.addEventListener("change", () => { state.included[id] = el.checked; save(); renderAll(); });
+    } else if (el.dataset.act === "move") {
+      el.addEventListener("change", () => {
+        const sess = state.sessions.find(s => sessionId(s) === id);
+        if (sess && sess.season !== el.value) {
+          const probe = { ...sess, season: el.value };
+          if (state.sessions.some(o => o !== sess && sessionId(o) === sessionId(probe))) {
+            alert("대상 챔피언십에 같은 결과가 이미 있습니다.");
+          } else {
+            // 시즌이 바뀌면 id도 바뀌므로 포함/이름/순서 정보를 같이 옮긴다
+            const inc = state.included[id], nm = state.names[id];
+            const oi = state.order.indexOf(id);
+            delete state.included[id]; delete state.names[id];
+            sess.season = el.value;
+            const nid = sessionId(sess);
+            if (inc !== undefined) state.included[nid] = inc;
+            if (nm !== undefined) state.names[nid] = nm;
+            if (oi >= 0) state.order[oi] = nid;
+          }
+        }
+        save(); renderAll();
+      });
+    } else {
+      el.addEventListener("click", () => {
+        if (el.dataset.act === "del") {
+          state.sessions = state.sessions.filter(s => sessionId(s) !== id);
+          state.order = state.order.filter(o => o !== id);
+          delete state.names[id];
+        } else if (el.dataset.act === "rename") {
+          const sess = state.sessions.find(s => sessionId(s) === id);
+          const cur = state.names[id] || (sess ? prettyTrack(sess.trackRaw) : "");
+          const v = prompt("트랙/라운드 이름을 입력하세요 (비우면 자동 이름)", cur);
+          if (v === null) return;
+          if (v.trim()) state.names[id] = v.trim(); else delete state.names[id];
+        } else {
+          // 현재 챔피언십 안에서의 이웃과 위치를 바꾼다 (전체 순서 목록 기준 이동)
+          const visible = raceSessions().map(sessionId);
+          const vi = visible.indexOf(id);
+          const vj = el.dataset.act === "up" ? vi - 1 : vi + 1;
+          if (vi >= 0 && vj >= 0 && vj < visible.length) {
+            const other = visible[vj];
+            state.order.splice(state.order.indexOf(id), 1);
+            const k = state.order.indexOf(other) + (el.dataset.act === "down" ? 1 : 0);
+            state.order.splice(k, 0, id);
+          }
+        }
+        save(); renderAll();
+      });
+    }
+  });
+}
+
+function renderStandings() {
+  const body = document.getElementById("standingsBody");
+  const cur = state.seasons.find(s => s.id === state.currentSeason);
+  document.getElementById("standingsSeason").textContent = cur ? `— ${cur.name}` : "";
+  const races = preparedRaces();
+  if (!races.length) {
+    body.innerHTML = `<div class="empty-note">포함된 라운드가 없습니다.</div>`;
+    return;
+  }
+  const settings = currentSettings();
+  const { standings } = computeChampionship(races, settings);
+  const cf = state.settings.classFilter;
+  const rows = standings.filter(e => cf < 0 || e.cupCategory === cf);
+
+  const roundHead = races.map((r, i) => `<th title="${esc(displayTrack(r))}">R${i + 1}</th>`).join("");
+  const flCol = settings.flBonus ? "<th>FL</th>" : "";
+
+  // 직전 라운드까지의 순위와 비교해 변동(▲▼) 계산
+  let prevRank = null;
+  if (races.length > 1) {
+    const prev = computeChampionship(races.slice(0, -1), settings).standings
+      .filter(e => cf < 0 || e.cupCategory === cf);
+    prevRank = new Map(prev.map((e, i) => [e.raceNumber, i + 1]));
+  }
+
+  const maxTotal = Math.max(1, ...rows.map(e => e.total));
+  const trs = rows.map((e, i) => {
+    const cells = e.perRound.map((r, ri) => {
+      if (!r) return `<td class="zero">·</td>`;
+      const cls = e.dropIdx.has(ri) ? "dropped" : (r.points === 0 ? "zero" : "");
+      const marks = `${r.pole ? '<span class="bonus-mark p">P</span>' : ""}${r.fl ? '<span class="bonus-mark f">FL</span>' : ""}`;
+      return `<td class="${cls}" title="${ri + 1}라운드 ${r.pos}위">${r.points}${marks}</td>`;
+    }).join("");
+    let delta = "";
+    if (prevRank) {
+      if (!prevRank.has(e.raceNumber)) delta = `<span class="delta new">NEW</span>`;
+      else {
+        const d = prevRank.get(e.raceNumber) - (i + 1);
+        delta = d > 0 ? `<span class="delta up">▲${d}</span>`
+          : d < 0 ? `<span class="delta down">▼${-d}</span>`
+          : `<span class="delta same">—</span>`;
+      }
+    }
+    const img = state.driverImages[e.raceNumber];
+    const avatar = `<span class="avatar" data-avatar="${e.raceNumber}"
+      title="클릭: 드라이버 사진 등록/변경 · Shift+클릭: 삭제">${
+      img ? `<img src="${img}" alt="">` : esc(String(e.name).charAt(0))}</span>`;
+    const { bestQ, avgQ } = qualiStatText(e);
+    const flCell = settings.flBonus ? `<td>${e.fls || ""}</td>` : "";
+    return `<tr class="pos-${i + 1} brand-row" style="--bar:${(e.total / maxTotal * 100).toFixed(1)}%">
+      <td class="pos-cell">${i + 1}</td>
+      <td>${delta}</td>
+      <td class="l drv-cell"><span class="mk-box">${makerChipHtml(e.carModel)}</span>${avatar}
+        <span class="drv-names"><b>${esc(e.name)}</b><small><span class="race-num">#${e.raceNumber}</span>${esc(e.team || "")}</small></span></td>
+      <td class="total">${e.total}</td>
+      ${cells}
+      <td>${e.wins || ""}</td>
+      <td>${e.podiums || ""}</td>
+      <td>${e.poles || ""}</td>
+      <td>${bestQ}</td>
+      <td>${avgQ}</td>${flCell}
+    </tr>`;
+  }).join("");
+
+  let html = `<div class="tbl-wrap"><table>
+    <thead><tr><th>순위</th><th>±</th><th class="l">드라이버</th><th>총점</th>${roundHead}<th>우승</th><th>TOP3</th><th>폴</th><th>베스트 Q</th><th>평균 Q</th>${flCol}</tr></thead>
+    <tbody>${trs}</tbody>
+  </table></div>`;
+
+  if (state.settings.teamsOn) {
+    const teams = new Map();
+    for (const e of rows) {
+      const key = e.team || "(팀 없음)";
+      const t = teams.get(key) || { team: key, total: 0, drivers: [] };
+      t.total += e.total; t.drivers.push(e.name);
+      teams.set(key, t);
+    }
+    const tRows = [...teams.values()].sort((a, b) => b.total - a.total)
+      .map((t, i) => `<tr class="pos-${i + 1}"><td>${i + 1}</td><td class="l">${esc(t.team)}</td>
+        <td class="l team-cell">${esc(t.drivers.join(", "))}</td><td class="total">${t.total}</td></tr>`).join("");
+    html += `<h3 class="sub-title">팀 순위</h3><div class="tbl-wrap"><table>
+      <thead><tr><th>순위</th><th class="l">팀</th><th class="l">드라이버</th><th>총점</th></tr></thead>
+      <tbody>${tRows}</tbody></table></div>`;
+  }
+
+  body.innerHTML = html;
+  body.querySelectorAll("[data-avatar]").forEach(el => {
+    el.addEventListener("click", ev => onAvatarClick(ev, el.dataset.avatar));
+  });
+}
+
+function renderResults() { renderRounds(); renderStandings(); }
+function renderAll() { renderPointsEditor(); renderResults(); }
+
+function exportCsv() {
+  const races = preparedRaces();
+  if (!races.length) return;
+  const { standings } = computeChampionship(races, currentSettings());
+  const cf = state.settings.classFilter;
+  const rows = standings.filter(e => cf < 0 || e.cupCategory === cf);
+  const head = ["순위", "번호", "드라이버", "팀", "총점", ...races.map((_, i) => `R${i + 1}`),
+    "우승", "TOP3", "폴", "베스트 퀄리", "평균 퀄리"];
+  const csv = [head, ...rows.map((e, i) => {
+    const { bestQ, avgQ } = qualiStatText(e);
+    return [
+      i + 1, e.raceNumber, e.name, e.team || "",
+      e.total, ...e.perRound.map(r => (r ? r.points : "")),
+      e.wins, e.podiums, e.poles, bestQ, avgQ,
+    ];
+  })].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const cur = state.seasons.find(x => x.id === state.currentSeason);
+  a.download = `${(cur ? cur.name : "championship").replace(/[\\/:*?"<>|]/g, "_")}_순위표.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ============================================================
+// 이벤트 바인딩
+// ============================================================
+function bind() {
+  const dz = document.getElementById("dropzone");
+  const fileInput = document.getElementById("fileInput");
+  const folderInput = document.getElementById("folderInput");
+
+  dz.addEventListener("click", () => fileInput.click());
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", async e => {
+    e.preventDefault(); dz.classList.remove("drag");
+    addFiles(await collectDropped(e.dataTransfer));
+  });
+  document.getElementById("btnPickFiles").addEventListener("click", () => fileInput.click());
+  document.getElementById("btnPickFolder").addEventListener("click", () => folderInput.click());
+  fileInput.addEventListener("change", () => { addFiles([...fileInput.files]); fileInput.value = ""; });
+  folderInput.addEventListener("change", () => { addFiles([...folderInput.files]); folderInput.value = ""; });
+
+  document.getElementById("btnClear").addEventListener("click", () => {
+    if (!state.sessions.length || confirm("불러온 모든 결과를 지울까요? (모든 챔피언십 데이터 삭제, 포인트 설정은 유지)")) {
+      state.sessions = []; state.order = []; state.included = {}; state.names = {};
+      document.getElementById("loadStatus").textContent = "";
+      save(); renderAll();
+    }
+  });
+
+  document.getElementById("presetSelect").addEventListener("change", e => {
+    const p = PRESETS.find(x => x.id === e.target.value);
+    if (p) { state.settings.points = [...p.points]; save(); renderAll(); }
+    e.target.value = "";
+  });
+  document.getElementById("btnAddPos").addEventListener("click", () => {
+    state.settings.points.push(0); save(); renderAll();
+  });
+  document.getElementById("btnRemovePos").addEventListener("click", () => {
+    if (state.settings.points.length > 1) { state.settings.points.pop(); save(); renderAll(); }
+  });
+
+  const s = state.settings;
+  const opt = (id, key, isNum) => document.getElementById(id).addEventListener("change", e => {
+    s[key] = isNum ? Math.max(0, +e.target.value || 0) : e.target.checked;
+    save(); renderResults();
+  });
+  opt("optPole", "poleOn"); opt("poleBonus", "poleBonus", true);
+  opt("optFL", "flOn"); opt("flBonus", "flBonus", true);
+  opt("optDrop", "dropOn"); opt("dropCount", "dropCount", true);
+  opt("optTeamName", "teamAsName");
+  document.getElementById("optLogoPlate").addEventListener("change", e => {
+    state.settings.logoPlate = e.target.checked;
+    save(); applyLogoPlate();
+  });
+
+  document.getElementById("btnWatch").addEventListener("click", onWatchClick);
+  document.getElementById("btnWatchStop").addEventListener("click", stopWatch);
+  document.getElementById("btnLive").addEventListener("click", startLive);
+  document.getElementById("btnLiveStop").addEventListener("click", stopLive);
+
+  document.getElementById("seasonSelect").addEventListener("change", e => {
+    state.currentSeason = e.target.value; save(); renderAll();
+  });
+  document.getElementById("btnSeasonNew").addEventListener("click", () => {
+    const name = prompt("새 챔피언십 이름", `챔피언십 ${state.seasons.length + 1}`);
+    if (!name || !name.trim()) return;
+    const id = "s" + Date.now();
+    state.seasons.push({ id, name: name.trim() });
+    state.currentSeason = id;
+    save(); renderAll();
+  });
+  document.getElementById("btnSeasonRename").addEventListener("click", () => {
+    const cur = state.seasons.find(s => s.id === state.currentSeason);
+    if (!cur) return;
+    const name = prompt("챔피언십 이름 변경", cur.name);
+    if (name && name.trim()) { cur.name = name.trim(); save(); renderAll(); }
+  });
+  document.getElementById("btnSeasonDel").addEventListener("click", () => {
+    if (state.seasons.length <= 1) { alert("마지막 챔피언십은 삭제할 수 없습니다."); return; }
+    const cur = state.seasons.find(s => s.id === state.currentSeason);
+    const cnt = seasonSessions().length;
+    if (!confirm(`"${cur.name}"${cnt ? `와 포함된 세션 ${cnt}개` : ""}를 삭제할까요?`)) return;
+    state.sessions = state.sessions.filter(s => s.season !== state.currentSeason);
+    state.seasons = state.seasons.filter(s => s.id !== state.currentSeason);
+    state.currentSeason = state.seasons[0].id;
+    save(); renderAll();
+  });
+
+  document.getElementById("classFilter").addEventListener("change", e => {
+    s.classFilter = +e.target.value; save(); renderStandings();
+  });
+  document.getElementById("optTeams").addEventListener("change", e => {
+    s.teamsOn = e.target.checked; save(); renderStandings();
+  });
+  document.getElementById("btnCsv").addEventListener("click", exportCsv);
+}
+
+load();
+bind();
+document.getElementById("classFilter").value = String(state.settings.classFilter);
+document.getElementById("optTeams").checked = state.settings.teamsOn;
+renderAll();
+tryResumeWatch();
+</script>
+</body>
+</html>
