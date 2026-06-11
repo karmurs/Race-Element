@@ -205,6 +205,20 @@
     </div>
   </section>
 
+  <!-- 1.5 라이브 -->
+  <section>
+    <h2>&#128250; 라이브 (게임 실시간)
+      <span class="spacer"></span>
+      <button id="btnLive" class="mini">라이브 연결</button>
+      <button id="btnLiveStop" class="mini danger" hidden>연결 끊기</button>
+    </h2>
+    <div class="body" id="liveBody">
+      <div class="empty-note">게임의 실시간 순위를 보려면 <b>live-bridge.py</b>를 실행하고 "라이브 연결"을 누르세요.<br>
+        <small>설정 방법: 문서\Assetto Corsa Competizione\Config\broadcasting.json에서
+        udpListenerPort=9000, connectionPassword="asd" 지정 후 게임 재시작 → <code>python live-bridge.py</code></small></div>
+    </div>
+  </section>
+
   <!-- 2. 포인트 설정 -->
   <section>
     <h2>&#9881;&#65039; 포인트 설정
@@ -681,6 +695,10 @@ async function addFiles(files) {
       const id = sessionId(sess);
       const existing = state.sessions.findIndex(s => sessionId(s) === id);
       if (existing >= 0) state.sessions[existing] = sess; else state.sessions.push(sess);
+      // 결과 파일에 트랙 정보가 없으면 라이브 데이터의 트랙 이름으로 자동 명명
+      if (sess.type === "R" && !sess.trackRaw && liveTrackName && !state.names[id]) {
+        state.names[id] = prettyTrack(liveTrackName);
+      }
       ok++;
     } catch { skipped++; }
   }
@@ -832,6 +850,86 @@ async function tryResumeWatch() {
       setWatchStatus("이전에 감시하던 폴더가 있습니다", false);
     }
   } catch {}
+}
+
+// ============================================================
+// 라이브 모드 — live-bridge.py(localhost HTTP)에서 게임 실시간 데이터 폴링
+// ============================================================
+const LIVE_URL = "http://127.0.0.1:8927/state";
+const LIVE_INTERVAL_MS = 1000;
+let liveTimer = null;
+let liveTrackName = "";   // 방송 API의 트랙 이름 — 새 라운드 자동 이름에 사용
+
+function liveDriverName(car) {
+  const d0 = (car.drivers || [])[0] || {};
+  let name = (d0.lastName || "").trim() || (d0.firstName || "").trim()
+    || d0.shortName || `#${car.raceNumber}`;
+  const team = (car.teamName || "").trim();
+  if (state.settings.teamAsName && team) return team;
+  if (team && !(d0.firstName || "").trim() && (team === name || team.endsWith(name))) return team;
+  return name;
+}
+
+async function pollLive() {
+  const body = document.getElementById("liveBody");
+  try {
+    const res = await fetch(LIVE_URL, { cache: "no-store" });
+    const s = await res.json();
+    if (!s.connected) {
+      body.innerHTML = `<div class="empty-note">브리지는 실행 중이지만 아직 게임과 연결되지 않았습니다.<br>
+        <small>게임이 세션에 들어가 있어야 하며, broadcasting.json 설정 후 게임을 재시작해야 합니다.</small></div>`;
+      return;
+    }
+    if (s.track) liveTrackName = s.track;
+    const remain = s.timeRemainMs != null
+      ? `${Math.floor(s.timeRemainMs / 60000)}:${String(Math.floor(s.timeRemainMs % 60000 / 1000)).padStart(2, "0")}` : "—";
+    const pts = state.settings.points;
+    const isRace = s.sessionType === "레이스";
+    const rows = (s.cars || []).map((c, i) => {
+      const pos = c.position || i + 1;
+      const pview = isRace ? (pts[pos - 1] || 0) : "";
+      return `<tr class="pos-${pos}">
+        <td>${pos}</td>
+        <td class="l"><span class="race-num">#${c.raceNumber}</span>${esc(liveDriverName(c))}</td>
+        <td class="l team-cell">${esc(carName(c.carModel))}</td>
+        <td>${c.laps ?? ""}</td>
+        <td>${formatLapTime(c.lastLap)}</td>
+        <td>${formatLapTime(c.bestLap)}</td>
+        ${isRace ? `<td class="total">${pview}</td>` : ""}
+      </tr>`;
+    }).join("");
+    body.innerHTML = `
+      <div style="margin-bottom:10px;font-size:13px;color:var(--muted)">
+        <span class="watch-dot"></span><b style="color:var(--text)">${esc(prettyTrack(s.track) || s.track || "")}</b>
+        &nbsp;·&nbsp; ${esc(s.sessionType || "")} (${esc(s.phase || "")}) &nbsp;·&nbsp; 남은 시간 ${remain}
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>P</th><th class="l">드라이버</th><th class="l">차량</th><th>랩</th>
+          <th>마지막 랩</th><th>베스트 랩</th>${isRace ? "<th>예상 포인트</th>" : ""}</tr></thead>
+        <tbody>${rows || ""}</tbody>
+      </table></div>
+      ${rows ? "" : '<div class="empty-note">차량 정보를 기다리는 중…</div>'}`;
+  } catch {
+    body.innerHTML = `<div class="empty-note">브리지(live-bridge.py)에 연결할 수 없습니다.<br>
+      <small>브리지를 실행한 뒤 다시 시도하세요: <code>python live-bridge.py</code></small></div>`;
+  }
+}
+
+function startLive() {
+  if (liveTimer) clearInterval(liveTimer);
+  document.getElementById("btnLive").hidden = true;
+  document.getElementById("btnLiveStop").hidden = false;
+  pollLive();
+  liveTimer = setInterval(pollLive, LIVE_INTERVAL_MS);
+}
+
+function stopLive() {
+  if (liveTimer) clearInterval(liveTimer);
+  liveTimer = null;
+  document.getElementById("btnLive").hidden = false;
+  document.getElementById("btnLiveStop").hidden = true;
+  document.getElementById("liveBody").innerHTML =
+    `<div class="empty-note">라이브 연결이 꺼져 있습니다.</div>`;
 }
 
 // ============================================================
@@ -1195,6 +1293,8 @@ function bind() {
 
   document.getElementById("btnWatch").addEventListener("click", onWatchClick);
   document.getElementById("btnWatchStop").addEventListener("click", stopWatch);
+  document.getElementById("btnLive").addEventListener("click", startLive);
+  document.getElementById("btnLiveStop").addEventListener("click", stopLive);
 
   document.getElementById("seasonSelect").addEventListener("change", e => {
     state.currentSeason = e.target.value; save(); renderAll();
